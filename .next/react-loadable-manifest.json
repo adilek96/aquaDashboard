@@ -1,0 +1,62 @@
+{
+  "app\\dashboard\\content\\page.tsx -> @/components/editor": {
+    "id": 892,
+    "files": [
+      "static/chunks/892.6f8c464ba512bae2.js"
+    ]
+  },
+  "components\\editor.tsx -> @editorjs/code": {
+    "id": 4969,
+    "files": [
+      "static/chunks/969.64f7490c314f0756.js"
+    ]
+  },
+  "components\\editor.tsx -> @editorjs/editorjs": {
+    "id": 7501,
+    "files": [
+      "static/chunks/243dde97.e05e822452ac6186.js"
+    ]
+  },
+  "components\\editor.tsx -> @editorjs/header": {
+    "id": 9409,
+    "files": [
+      "static/chunks/409.58ee76bd2dadbb1c.js"
+    ]
+  },
+  "components\\editor.tsx -> @editorjs/list": {
+    "id": 2990,
+    "files": [
+      "static/chunks/990.e86b8aea505cd09b.js"
+    ]
+  },
+  "components\\editor.tsx -> @editorjs/paragraph": {
+    "id": 1565,
+    "files": [
+      "static/chunks/565.2c213627da28d7b2.js"
+    ]
+  },
+  "components\\editor.tsx -> @editorjs/quote": {
+    "id": 6957,
+    "files": [
+      "static/chunks/957.1e59c774da662385.js"
+    ]
+  },
+  "components\\editor.tsx -> @editorjs/table": {
+    "id": 1069,
+    "files": [
+      "static/chunks/69.96d65e559be0af46.js"
+    ]
+  },
+  "node_modules\\next\\dist\\client\\index.js -> ../pages/_app": {
+    "id": 472,
+    "files": [
+      "static/chunks/472.a3826d29d6854395.js"
+    ]
+  },
+  "node_modules\\next\\dist\\client\\index.js -> ../pages/_error": {
+    "id": 9341,
+    "files": [
+      "static/chunks/341.2903e54d3da731c1.js"
+    ]
+  }
+}
