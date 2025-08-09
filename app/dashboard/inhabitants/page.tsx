@@ -39,15 +39,22 @@ import {
   Image,
   Link,
 } from "lucide-react";
+
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  apiClient,
-  type Inhabitant,
-  type CreateInhabitantRequest,
-  type UpdateInhabitantRequest,
+  createInhabitant,
+  deleteInhabitant,
+  getInhabitants,
+  updateInhabitant,
+} from "@/app/action/inhabitants";
+import {
+  Translation,
   AquariumType,
   Subtype,
-} from "@/lib/api-client";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+  Inhabitant,
+  CreateInhabitantRequest,
+  UpdateInhabitantRequest,
+} from "@/types/dashboard";
 
 export default function InhabitantsPage() {
   const [inhabitants, setInhabitants] = useState<Inhabitant[]>([]);
@@ -75,11 +82,7 @@ export default function InhabitantsPage() {
 
   const fetchInhabitants = async () => {
     try {
-      const filters = {
-        locale: "ru",
-        type: typeFilter !== "all" ? typeFilter : undefined,
-      };
-      const response = await apiClient.getInhabitants(filters);
+      const response = await getInhabitants();
       if (response.statusCode === 200 && response.data) {
         setInhabitants(response.data);
       } else {
@@ -108,7 +111,7 @@ export default function InhabitantsPage() {
         },
         images: formData.images,
       };
-      const response = await apiClient.createInhabitant(inhabitantData);
+      const response = await createInhabitant(inhabitantData);
       if (response.statusCode === 200) {
         toast({
           title: "Успешно",
@@ -144,7 +147,7 @@ export default function InhabitantsPage() {
         },
         images: formData.images,
       };
-      const response = await apiClient.updateInhabitant(inhabitantData);
+      const response = await updateInhabitant(inhabitantData);
       if (response.statusCode === 200) {
         toast({
           title: "Успешно",
@@ -169,7 +172,7 @@ export default function InhabitantsPage() {
     if (!confirm("Вы уверены, что хотите удалить этого обитателя?")) return;
 
     try {
-      const response = await apiClient.deleteInhabitant(id);
+      const response = await deleteInhabitant(id);
       if (response.statusCode === 200) {
         toast({
           title: "Успешно",
@@ -193,13 +196,13 @@ export default function InhabitantsPage() {
 
     // Заполняем форму данными обитателя
     const ruTranslation = inhabitant.translations.find(
-      (t) => t.locale === "ru"
+      (t: Translation) => t.locale === "ru"
     );
     const azTranslation = inhabitant.translations.find(
-      (t) => t.locale === "az"
+      (t: Translation) => t.locale === "az"
     );
     const enTranslation = inhabitant.translations.find(
-      (t) => t.locale === "en"
+      (t: Translation) => t.locale === "en"
     );
 
     setFormData({
@@ -234,9 +237,9 @@ export default function InhabitantsPage() {
     setEditingInhabitant(null);
   };
 
-  const filteredInhabitants = inhabitants.filter((inhabitant) => {
+  const filteredInhabitants = (inhabitants || []).filter((inhabitant) => {
     const ruTranslation = inhabitant.translations.find(
-      (t) => t.locale === "ru"
+      (t: Translation) => t.locale === "ru"
     );
     return ruTranslation?.title
       .toLowerCase()
@@ -376,7 +379,10 @@ export default function InhabitantsPage() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          ru: { title: e.target.value },
+                          ru: {
+                            title: e.target.value,
+                            description: formData.ru.description,
+                          },
                         })
                       }
                       placeholder="Введите название на русском"
@@ -393,7 +399,10 @@ export default function InhabitantsPage() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          az: { title: e.target.value },
+                          az: {
+                            title: e.target.value,
+                            description: formData.az.description,
+                          },
                         })
                       }
                       placeholder="Введите название на азербайджанском"
@@ -410,7 +419,10 @@ export default function InhabitantsPage() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          en: { title: e.target.value },
+                          en: {
+                            title: e.target.value,
+                            description: formData.en.description,
+                          },
                         })
                       }
                       placeholder="Введите название на английском"
@@ -443,7 +455,12 @@ export default function InhabitantsPage() {
           />
         </div>
         <div className="w-64">
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
+          <Select
+            value={typeFilter}
+            onValueChange={(value) =>
+              setTypeFilter(value as AquariumType | "all")
+            }
+          >
             <SelectTrigger>
               <SelectValue placeholder="Все типы" />
             </SelectTrigger>
@@ -464,13 +481,13 @@ export default function InhabitantsPage() {
       <div className="grid gap-4">
         {filteredInhabitants.map((inhabitant) => {
           const ruTranslation = inhabitant.translations.find(
-            (t) => t.locale === "ru"
+            (t: Translation) => t.locale === "ru"
           );
           const azTranslation = inhabitant.translations.find(
-            (t) => t.locale === "az"
+            (t: Translation) => t.locale === "az"
           );
           const enTranslation = inhabitant.translations.find(
-            (t) => t.locale === "en"
+            (t: Translation) => t.locale === "en"
           );
 
           return (
@@ -689,7 +706,10 @@ export default function InhabitantsPage() {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        ru: { title: e.target.value },
+                        ru: {
+                          title: e.target.value,
+                          description: formData.ru.description,
+                        },
                       })
                     }
                     placeholder="Введите название на русском"
@@ -708,7 +728,10 @@ export default function InhabitantsPage() {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        az: { title: e.target.value },
+                        az: {
+                          title: e.target.value,
+                          description: formData.az.description,
+                        },
                       })
                     }
                     placeholder="Введите название на азербайджанском"
@@ -725,7 +748,10 @@ export default function InhabitantsPage() {
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        en: { title: e.target.value },
+                        en: {
+                          title: e.target.value,
+                          description: formData.en.description,
+                        },
                       })
                     }
                     placeholder="Введите название на английском"

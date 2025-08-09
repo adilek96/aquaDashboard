@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -18,17 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+
 import { useToast } from "@/hooks/use-toast";
 import {
   Plus,
@@ -40,53 +31,34 @@ import {
   FileText,
   Languages,
 } from "lucide-react";
-import {
-  apiClient,
-  type Article,
-  type Category,
-  type SubCategory,
-  type CreateArticleRequest,
-  type UpdateArticleRequest,
-} from "@/lib/api-client";
-import dynamic from "next/dynamic";
 
-const Editor = dynamic(
-  () => import("@/components/editor").then((mod) => ({ default: mod.Editor })),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="min-h-[200px] p-4 border border-border rounded-lg bg-background flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    ),
-  }
-);
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { deleteArticle, getArticles } from "@/app/action/articles";
+import { getCategories } from "@/app/action/categories";
+import { getSubCategories } from "@/app/action/subcategories";
+import {
+  Translation,
+  ArticleImage,
+  Category,
+  SubCategory,
+  Article,
+} from "@/types/dashboard";
 
 export default function ContentPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [articles, setArticles] = useState<Article[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [subCategoryFilter, setSubCategoryFilter] = useState("all");
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editingArticle, setEditingArticle] = useState<Article | null>(null);
-  const [formData, setFormData] = useState({
-    az: { title: "", description: "" },
-    ru: { title: "", description: "" },
-    en: { title: "", description: "" },
-    subCategoryId: "",
-    images: [] as string[],
-  });
-  const [editorData, setEditorData] = useState<any>(null);
+
   const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
 
@@ -100,6 +72,18 @@ export default function ContentPage() {
     fetchSubCategories();
   }, [searchTerm, subCategoryFilter]);
 
+  // Обработка параметра refresh для принудительного обновления
+  useEffect(() => {
+    const refresh = searchParams.get("refresh");
+    if (refresh === "true") {
+      fetchArticles();
+      // Удаляем параметр из URL
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete("refresh");
+      window.history.replaceState({}, "", newUrl.toString());
+    }
+  }, [searchParams]);
+
   const fetchArticles = async () => {
     try {
       const filters = {
@@ -107,10 +91,43 @@ export default function ContentPage() {
         subCategoryId:
           subCategoryFilter !== "all" ? subCategoryFilter : undefined,
       };
-      const response = await apiClient.getArticles(filters);
+      const response = await getArticles(filters);
+
+      console.log("Ответ API при получении статей:", response);
       if (response.statusCode === 200 && response.data) {
-        setArticles(response.data);
+        console.log("Количество статей получено:", response.data.length);
+        console.log("Первая статья:", response.data[0]);
+        console.log(
+          "Структура первой статьи:",
+          JSON.stringify(response.data[0], null, 2)
+        );
+
+        // Преобразуем данные API для совместимости с UI
+        const articlesWithSubCategoryId = response.data.map((article: any) => {
+          console.log("Преобразуем статью:", article);
+
+          const transformed = {
+            ...article,
+            // Берем первую подкатегорию для обратной совместимости с UI
+            subCategoryId:
+              article.subCategories?.[0]?.id || article.subCategoryId || "",
+            // Если нет translations, создаем их из title/description
+            translations: article.translations || [
+              {
+                locale: "ru",
+                title: article.title || "",
+                description: article.description || "",
+              },
+            ],
+          };
+
+          console.log("Результат преобразования:", transformed);
+          return transformed;
+        });
+        console.log("Все преобразованные статьи:", articlesWithSubCategoryId);
+        setArticles(articlesWithSubCategoryId);
       } else {
+        console.log("Ошибка API или нет данных:", response);
         throw new Error(response.error || "Ошибка загрузки статей");
       }
     } catch (error) {
@@ -126,7 +143,7 @@ export default function ContentPage() {
 
   const fetchCategories = async () => {
     try {
-      const response = await apiClient.getCategories("ru");
+      const response = await getCategories("ru");
       if (response.statusCode === 200 && response.data) {
         setCategories(response.data);
       }
@@ -137,7 +154,7 @@ export default function ContentPage() {
 
   const fetchSubCategories = async () => {
     try {
-      const response = await apiClient.getSubCategories("ru");
+      const response = await getSubCategories();
       if (response.statusCode === 200 && response.data) {
         setSubCategories(response.data);
       }
@@ -146,80 +163,15 @@ export default function ContentPage() {
     }
   };
 
-  const handleCreate = async () => {
-    try {
-      const articleData: CreateArticleRequest = {
-        subCategoryId: formData.subCategoryId,
-        translations: {
-          az: formData.az,
-          ru: formData.ru,
-          en: formData.en,
-        },
-        images: formData.images,
-        content: JSON.stringify(editorData),
-      };
-      const response = await apiClient.createArticle(articleData);
-      if (response.statusCode === 200) {
-        toast({
-          title: "Успешно",
-          description: "Статья создана",
-        });
-        setIsCreateDialogOpen(false);
-        resetForm();
-        fetchArticles();
-      } else {
-        throw new Error(response.error || "Ошибка создания статьи");
-      }
-    } catch (error) {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось создать статью",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleEdit = async () => {
-    if (!editingArticle) return;
-
-    try {
-      const articleData: UpdateArticleRequest = {
-        id: editingArticle.id,
-        subCategoryId: formData.subCategoryId,
-        translations: {
-          az: formData.az,
-          ru: formData.ru,
-          en: formData.en,
-        },
-        images: formData.images,
-        content: JSON.stringify(editorData),
-      };
-      const response = await apiClient.updateArticle(articleData);
-      if (response.statusCode === 200) {
-        toast({
-          title: "Успешно",
-          description: "Статья обновлена",
-        });
-        setIsEditDialogOpen(false);
-        resetForm();
-        fetchArticles();
-      } else {
-        throw new Error(response.error || "Ошибка обновления статьи");
-      }
-    } catch (error) {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось обновить статью",
-        variant: "destructive",
-      });
-    }
+  const handleCreateNew = () => {
+    router.push("/dashboard/content/create");
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Вы уверены, что хотите удалить эту статью?")) return;
 
     try {
-      const response = await apiClient.deleteArticle(id);
+      const response = await deleteArticle(id);
       if (response.statusCode === 200) {
         toast({
           title: "Успешно",
@@ -238,63 +190,42 @@ export default function ContentPage() {
     }
   };
 
-  const openEditDialog = (article: Article) => {
-    setEditingArticle(article);
-
-    // Заполняем форму данными статьи
-    const ruTranslation = article.translations.find((t) => t.locale === "ru");
-    const azTranslation = article.translations.find((t) => t.locale === "az");
-    const enTranslation = article.translations.find((t) => t.locale === "en");
-
-    setFormData({
-      ru: {
-        title: ruTranslation?.title || "",
-        description: ruTranslation?.description || "",
-      },
-      az: {
-        title: azTranslation?.title || "",
-        description: azTranslation?.description || "",
-      },
-      en: {
-        title: enTranslation?.title || "",
-        description: enTranslation?.description || "",
-      },
-      subCategoryId: article.subCategoryId,
-      images: article.images.map((img) => img.url),
-    });
-
-    try {
-      setEditorData(JSON.parse(article.content || "{}"));
-    } catch {
-      setEditorData({ blocks: [] });
-    }
-    setIsEditDialogOpen(true);
+  const handleEditArticle = (article: Article) => {
+    router.push(`/dashboard/content/edit/${article.id}`);
   };
 
-  const resetForm = () => {
-    setFormData({
-      az: { title: "", description: "" },
-      ru: { title: "", description: "" },
-      en: { title: "", description: "" },
-      subCategoryId: "",
-      images: [],
-    });
-    setEditorData(null);
-    setEditingArticle(null);
-  };
+  const filteredArticles = (articles || []).filter((article) => {
+    console.log("Фильтруем статью:", article);
+    console.log("Translations статьи:", article.translations);
 
-  const filteredArticles = articles.filter((article) => {
-    const ruTranslation = article.translations.find((t) => t.locale === "ru");
+    const ruTranslation = article.translations?.find(
+      (t: Translation) => t.locale === "ru"
+    );
+
+    console.log("Найден русский перевод:", ruTranslation);
+
     const matchesSearch =
+      !searchTerm ||
       ruTranslation?.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       ruTranslation?.description
         ?.toLowerCase()
         .includes(searchTerm.toLowerCase());
+
     const matchesSubCategory =
       subCategoryFilter === "all" ||
       article.subCategoryId === subCategoryFilter;
+
+    console.log(
+      "Поиск совпадает:",
+      matchesSearch,
+      "Категория совпадает:",
+      matchesSubCategory
+    );
     return matchesSearch && matchesSubCategory;
   });
+
+  console.log("Количество отфильтрованных статей:", filteredArticles.length);
+  console.log("Отфильтрованные статьи:", filteredArticles);
 
   if (!isClient || loading) {
     return (
@@ -322,182 +253,10 @@ export default function ContentPage() {
             Создавайте и редактируйте статьи с поддержкой мультиязычности
           </p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Создать статью
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Создать статью</DialogTitle>
-              <DialogDescription>
-                Создайте новую статью с переводами на трех языках
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="subcategory">Подкатегория</Label>
-                  <Select
-                    value={formData.subCategoryId}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, subCategoryId: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Выберите подкатегорию" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {subCategories.map((subCategory) => {
-                        const ruTranslation = subCategory.translations.find(
-                          (t) => t.locale === "ru"
-                        );
-                        return (
-                          <SelectItem
-                            key={subCategory.id}
-                            value={subCategory.id}
-                          >
-                            {ruTranslation?.title || "Без названия"}
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <Tabs defaultValue="ru" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="ru">Русский</TabsTrigger>
-                  <TabsTrigger value="az">Азербайджанский</TabsTrigger>
-                  <TabsTrigger value="en">Английский</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="ru" className="space-y-4">
-                  <div>
-                    <Label htmlFor="ru-title">Заголовок (Русский)</Label>
-                    <Input
-                      id="ru-title"
-                      value={formData.ru.title}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          ru: { ...formData.ru, title: e.target.value },
-                        })
-                      }
-                      placeholder="Введите заголовок на русском"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="ru-description">Описание (Русский)</Label>
-                    <Textarea
-                      id="ru-description"
-                      value={formData.ru.description}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          ru: { ...formData.ru, description: e.target.value },
-                        })
-                      }
-                      placeholder="Введите описание на русском"
-                      rows={3}
-                    />
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="az" className="space-y-4">
-                  <div>
-                    <Label htmlFor="az-title">
-                      Заголовок (Азербайджанский)
-                    </Label>
-                    <Input
-                      id="az-title"
-                      value={formData.az.title}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          az: { ...formData.az, title: e.target.value },
-                        })
-                      }
-                      placeholder="Введите заголовок на азербайджанском"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="az-description">
-                      Описание (Азербайджанский)
-                    </Label>
-                    <Textarea
-                      id="az-description"
-                      value={formData.az.description}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          az: { ...formData.az, description: e.target.value },
-                        })
-                      }
-                      placeholder="Введите описание на азербайджанском"
-                      rows={3}
-                    />
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="en" className="space-y-4">
-                  <div>
-                    <Label htmlFor="en-title">Заголовок (Английский)</Label>
-                    <Input
-                      id="en-title"
-                      value={formData.en.title}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          en: { ...formData.en, title: e.target.value },
-                        })
-                      }
-                      placeholder="Введите заголовок на английском"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="en-description">
-                      Описание (Английский)
-                    </Label>
-                    <Textarea
-                      id="en-description"
-                      value={formData.en.description}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          en: { ...formData.en, description: e.target.value },
-                        })
-                      }
-                      placeholder="Введите описание на английском"
-                      rows={3}
-                    />
-                  </div>
-                </TabsContent>
-              </Tabs>
-
-              <div>
-                <Label>Содержание статьи (EditorJS)</Label>
-                <Editor
-                  data={editorData}
-                  onChange={setEditorData}
-                  placeholder="Начните писать вашу статью..."
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsCreateDialogOpen(false)}
-              >
-                Отмена
-              </Button>
-              <Button onClick={handleCreate}>Создать статью</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={handleCreateNew}>
+          <Plus className="w-4 h-4 mr-2" />
+          Создать статью
+        </Button>
       </div>
 
       <div className="flex items-center space-x-6">
@@ -520,9 +279,9 @@ export default function ContentPage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Все подкатегории</SelectItem>
-              {subCategories.map((subCategory) => {
+              {(subCategories || []).map((subCategory) => {
                 const ruTranslation = subCategory.translations.find(
-                  (t) => t.locale === "ru"
+                  (t: Translation) => t.locale === "ru"
                 );
                 return (
                   <SelectItem key={subCategory.id} value={subCategory.id}>
@@ -537,20 +296,20 @@ export default function ContentPage() {
 
       <div className="grid gap-4">
         {filteredArticles.map((article) => {
-          const ruTranslation = article.translations.find(
-            (t) => t.locale === "ru"
+          const ruTranslation = article.translations?.find(
+            (t: Translation) => t.locale === "ru"
           );
-          const azTranslation = article.translations.find(
-            (t) => t.locale === "az"
+          const azTranslation = article.translations?.find(
+            (t: Translation) => t.locale === "az"
           );
-          const enTranslation = article.translations.find(
-            (t) => t.locale === "en"
+          const enTranslation = article.translations?.find(
+            (t: Translation) => t.locale === "en"
           );
-          const subCategory = subCategories.find(
+          const subCategory = (subCategories || []).find(
             (sc) => sc.id === article.subCategoryId
           );
           const subCategoryRuTranslation = subCategory?.translations.find(
-            (t) => t.locale === "ru"
+            (t: Translation) => t.locale === "ru"
           );
 
           return (
@@ -572,7 +331,7 @@ export default function ContentPage() {
                       className="flex items-center gap-1"
                     >
                       <Languages className="w-3 h-3" />
-                      {article.translations.length}/3
+                      {article.translations?.length || 0}/3
                     </Badge>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -582,7 +341,7 @@ export default function ContentPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
-                          onClick={() => openEditDialog(article)}
+                          onClick={() => handleEditArticle(article)}
                         >
                           <Edit className="w-4 h-4 mr-2" />
                           Редактировать
@@ -627,12 +386,14 @@ export default function ContentPage() {
                       {subCategoryRuTranslation?.title || "Не указана"}
                     </Badge>
                   </div>
-                  {article.images.length > 0 && (
+                  {(article.images?.length || 0) > 0 && (
                     <div className="flex items-center justify-between text-sm mt-2">
                       <span className="text-muted-foreground">
                         Изображения:
                       </span>
-                      <Badge variant="outline">{article.images.length}</Badge>
+                      <Badge variant="outline">
+                        {article.images?.length || 0}
+                      </Badge>
                     </div>
                   )}
                 </div>
@@ -655,7 +416,7 @@ export default function ContentPage() {
                   ? "Попробуйте изменить фильтры поиска"
                   : "Создайте первую статью для начала работы"}
               </p>
-              <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Button onClick={handleCreateNew}>
                 <Plus className="w-4 h-4 mr-2" />
                 Создать статью
               </Button>
@@ -663,175 +424,6 @@ export default function ContentPage() {
           </CardContent>
         </Card>
       )}
-
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Редактировать статью</DialogTitle>
-            <DialogDescription>Внесите изменения в статью</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="edit-subcategory">Подкатегория</Label>
-                <Select
-                  value={formData.subCategoryId}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, subCategoryId: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Выберите подкатегорию" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subCategories.map((subCategory) => {
-                      const ruTranslation = subCategory.translations.find(
-                        (t) => t.locale === "ru"
-                      );
-                      return (
-                        <SelectItem key={subCategory.id} value={subCategory.id}>
-                          {ruTranslation?.title || "Без названия"}
-                        </SelectItem>
-                      );
-                    })}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <Tabs defaultValue="ru" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="ru">Русский</TabsTrigger>
-                <TabsTrigger value="az">Азербайджанский</TabsTrigger>
-                <TabsTrigger value="en">Английский</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="ru" className="space-y-4">
-                <div>
-                  <Label htmlFor="edit-ru-title">Заголовок (Русский)</Label>
-                  <Input
-                    id="edit-ru-title"
-                    value={formData.ru.title}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        ru: { ...formData.ru, title: e.target.value },
-                      })
-                    }
-                    placeholder="Введите заголовок на русском"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit-ru-description">
-                    Описание (Русский)
-                  </Label>
-                  <Textarea
-                    id="edit-ru-description"
-                    value={formData.ru.description}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        ru: { ...formData.ru, description: e.target.value },
-                      })
-                    }
-                    placeholder="Введите описание на русском"
-                    rows={3}
-                  />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="az" className="space-y-4">
-                <div>
-                  <Label htmlFor="edit-az-title">
-                    Заголовок (Азербайджанский)
-                  </Label>
-                  <Input
-                    id="edit-az-title"
-                    value={formData.az.title}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        az: { ...formData.az, title: e.target.value },
-                      })
-                    }
-                    placeholder="Введите заголовок на азербайджанском"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit-az-description">
-                    Описание (Азербайджанский)
-                  </Label>
-                  <Textarea
-                    id="edit-az-description"
-                    value={formData.az.description}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        az: { ...formData.az, description: e.target.value },
-                      })
-                    }
-                    placeholder="Введите описание на азербайджанском"
-                    rows={3}
-                  />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="en" className="space-y-4">
-                <div>
-                  <Label htmlFor="edit-en-title">Заголовок (Английский)</Label>
-                  <Input
-                    id="edit-en-title"
-                    value={formData.en.title}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        en: { ...formData.en, title: e.target.value },
-                      })
-                    }
-                    placeholder="Введите заголовок на английском"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="edit-en-description">
-                    Описание (Английский)
-                  </Label>
-                  <Textarea
-                    id="edit-en-description"
-                    value={formData.en.description}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        en: { ...formData.en, description: e.target.value },
-                      })
-                    }
-                    placeholder="Введите описание на английском"
-                    rows={3}
-                  />
-                </div>
-              </TabsContent>
-            </Tabs>
-
-            <div>
-              <Label>Содержание статьи (EditorJS)</Label>
-              <Editor
-                data={editorData}
-                onChange={setEditorData}
-                placeholder="Начните писать вашу статью..."
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsEditDialogOpen(false)}
-            >
-              Отмена
-            </Button>
-            <Button onClick={handleEdit}>Сохранить изменения</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

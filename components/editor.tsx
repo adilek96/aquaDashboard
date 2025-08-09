@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
+import { validateEditorData, EditorData } from "@/lib/editor-utils";
 
 interface EditorProps {
   data?: any;
-  onChange?: (data: any) => void;
+  onChange?: (data: EditorData) => void;
   placeholder?: string;
 }
 
@@ -16,7 +17,22 @@ export function Editor({
   const editorRef = useRef<any>(null);
   const [isReady, setIsReady] = useState(false);
   const [isClient, setIsClient] = useState(false);
-  const editorId = useRef(`editor-${Math.random().toString(36).substr(2, 9)}`);
+  const [initError, setInitError] = useState<string | null>(null);
+  const editorId = useRef(
+    `editor-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+  );
+
+  const handleChange = useCallback(async () => {
+    try {
+      if (onChange && editorRef.current) {
+        const outputData = await editorRef.current.save();
+        const validatedData = validateEditorData(outputData);
+        onChange(validatedData);
+      }
+    } catch (error) {
+      console.error("Ошибка сохранения данных EditorJS:", error);
+    }
+  }, [onChange]);
 
   useEffect(() => {
     setIsClient(true);
@@ -25,15 +41,44 @@ export function Editor({
   useEffect(() => {
     if (!isClient) return;
 
+    let isMounted = true;
+
     const initEditor = async () => {
-      if (!editorRef.current) {
-        const { default: EditorJS } = await import("@editorjs/editorjs");
-        const { default: Header } = await import("@editorjs/header");
-        const { default: List } = await import("@editorjs/list");
-        const { default: Paragraph } = await import("@editorjs/paragraph");
-        const { default: Quote } = await import("@editorjs/quote");
-        const { default: Code } = await import("@editorjs/code");
-        const { default: Table } = await import("@editorjs/table");
+      if (editorRef.current) return;
+
+      try {
+        setInitError(null);
+
+        // Динамически импортируем все необходимые модули
+        const [
+          { default: EditorJS },
+          { default: Header },
+          { default: List },
+          { default: Paragraph },
+          { default: Quote },
+          { default: Code },
+          { default: Table },
+        ] = await Promise.all([
+          import("@editorjs/editorjs"),
+          import("@editorjs/header"),
+          import("@editorjs/list"),
+          import("@editorjs/paragraph"),
+          import("@editorjs/quote"),
+          import("@editorjs/code"),
+          import("@editorjs/table"),
+        ]);
+
+        if (!isMounted) return;
+
+        // Очищаем holder
+        const holder = document.getElementById(editorId.current);
+        if (holder) {
+          holder.innerHTML = "";
+        }
+
+        // Валидируем начальные данные
+        const validatedData = validateEditorData(data);
+        console.log("Инициализация EditorJS с данными:", validatedData);
 
         const editor = new EditorJS({
           holder: editorId.current,
@@ -42,21 +87,25 @@ export function Editor({
               class: Header,
               config: {
                 placeholder: "Введите заголовок...",
-                levels: [1, 2, 3, 4],
+                levels: [1, 2, 3, 4, 5, 6],
                 defaultLevel: 2,
               },
+              shortcut: "CMD+SHIFT+H",
             },
             paragraph: {
               class: Paragraph,
               config: {
                 placeholder: placeholder,
               },
+              inlineToolbar: true,
             },
             list: {
               class: List,
               config: {
                 defaultStyle: "unordered",
               },
+              inlineToolbar: true,
+              shortcut: "CMD+SHIFT+L",
             },
             quote: {
               class: Quote,
@@ -64,12 +113,15 @@ export function Editor({
                 quotePlaceholder: "Введите цитату",
                 captionPlaceholder: "Автор цитаты",
               },
+              inlineToolbar: true,
+              shortcut: "CMD+SHIFT+O",
             },
             code: {
               class: Code,
               config: {
                 placeholder: "Введите код...",
               },
+              shortcut: "CMD+SHIFT+C",
             },
             table: {
               class: Table,
@@ -77,41 +129,52 @@ export function Editor({
                 rows: 2,
                 cols: 3,
               },
+              inlineToolbar: true,
             },
           },
-          data: data || {},
-          onChange: async () => {
-            if (onChange && editorRef.current) {
-              const outputData = await editorRef.current.save();
-              onChange(outputData);
-            }
-          },
+          data: validatedData,
+          onChange: handleChange,
           placeholder: placeholder,
+          autofocus: false,
+          logLevel: "ERROR" as any,
         });
 
+        await editor.isReady;
+
+        if (!isMounted) {
+          editor.destroy();
+          return;
+        }
+
         editorRef.current = editor;
-        editor.isReady.then(() => {
-          setIsReady(true);
-        });
+        setIsReady(true);
+        console.log("EditorJS успешно инициализирован");
+      } catch (error) {
+        console.error("Критическая ошибка инициализации EditorJS:", error);
+        setInitError(
+          error instanceof Error ? error.message : "Неизвестная ошибка"
+        );
       }
     };
 
     initEditor();
 
     return () => {
-      if (editorRef.current && editorRef.current.destroy) {
-        editorRef.current.destroy();
+      isMounted = false;
+      if (editorRef.current) {
+        try {
+          editorRef.current.destroy();
+        } catch (error) {
+          console.error("Ошибка при уничтожении EditorJS:", error);
+        }
         editorRef.current = null;
       }
+      setIsReady(false);
     };
-  }, [isClient]);
+  }, [isClient, placeholder, handleChange]);
 
-  // Обновляем данные редактора при изменении data
-  useEffect(() => {
-    if (editorRef.current && isReady && data) {
-      editorRef.current.render(data);
-    }
-  }, [data, isReady]);
+  // НЕ обновляем данные после инициализации, чтобы избежать конфликтов
+  // EditorJS сам управляет своими данными после инициализации
 
   if (!isClient) {
     return (
@@ -123,11 +186,25 @@ export function Editor({
     );
   }
 
+  if (initError) {
+    return (
+      <div className="prose prose-sm max-w-none dark:prose-invert">
+        <div className="min-h-[200px] p-4 border border-red-300 rounded-lg bg-red-50 flex items-center justify-center">
+          <div className="text-red-600 text-center">
+            <p className="font-semibold">Ошибка загрузки редактора</p>
+            <p className="text-sm">{initError}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="prose prose-sm max-w-none dark:prose-invert">
       <div
         id={editorId.current}
-        className="min-h-[200px] p-4 border border-border rounded-lg bg-background"
+        className="min-h-[200px] p-4 border border-border rounded-lg bg-background focus-within:border-primary"
+        style={{ fontSize: "14px" }}
       />
     </div>
   );

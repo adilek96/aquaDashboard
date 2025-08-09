@@ -23,7 +23,9 @@ import {
   Globe,
   Mail,
 } from "lucide-react";
-import { apiClient, type User as UserType } from "@/lib/api-client";
+
+import { getUsers, deleteUser } from "@/app/action/users";
+import { UserType } from "@/types/dashboard";
 
 export default function UsersPage() {
   const [users, setUsers] = useState<UserType[]>([]);
@@ -45,14 +47,11 @@ export default function UsersPage() {
   const fetchUsers = async () => {
     try {
       setLoading(true);
-      const response = await apiClient.getUsers(
-        currentPage,
-        limit,
-        searchTerm || undefined
-      );
+      const response = await getUsers(currentPage, limit);
+
       if (response.statusCode === 200 && response.data) {
-        setUsers(response.data.users);
-        setTotalCount(response.data.totalCount);
+        setUsers(response.data.users || response.data);
+        setTotalCount(response.data.totalCount || 0);
       } else {
         throw new Error(response.error || "Ошибка загрузки пользователей");
       }
@@ -72,11 +71,11 @@ export default function UsersPage() {
 
     try {
       setDeleting(true);
-      const response = await apiClient.deleteUser(userToDelete.id);
+      const response = await deleteUser(userToDelete.id);
       if (response.statusCode === 200 && response.data) {
         toast({
           title: "Успешно",
-          description: `Пользователь ${response.data.deletedUser.name} удален`,
+          description: `Пользователь ${userToDelete.name} удален`,
         });
         setIsDeleteDialogOpen(false);
         setUserToDelete(null);
@@ -153,7 +152,7 @@ export default function UsersPage() {
       </Card>
 
       <div className="space-y-4">
-        {users.map((user) => (
+        {(users || []).map((user) => (
           <Card key={user.id}>
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">

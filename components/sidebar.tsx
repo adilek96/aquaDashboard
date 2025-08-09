@@ -52,11 +52,6 @@ const navigation = [
     href: "/dashboard/users",
     icon: Users,
   },
-  {
-    name: "Токены",
-    href: "/dashboard/tokens",
-    icon: Key,
-  },
 ];
 
 export function Sidebar() {

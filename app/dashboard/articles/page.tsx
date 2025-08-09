@@ -20,8 +20,16 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Search, FileText, Eye, Calendar, User } from "lucide-react";
-import { apiClient, type Article, type Category } from "@/lib/api-client";
+
 import Link from "next/link";
+import { getArticles } from "@/app/action/articles";
+import { getCategories } from "@/app/action/categories";
+import {
+  Translation,
+  ArticleImage,
+  Category,
+  Article,
+} from "@/types/dashboard";
 
 export default function ArticlesPage() {
   const [articles, setArticles] = useState<Article[]>([]);
@@ -43,9 +51,11 @@ export default function ArticlesPage() {
         subCategoryId:
           subCategoryFilter !== "all" ? subCategoryFilter : undefined,
       };
-      const response = await apiClient.getArticles(filters);
+      const response = await getArticles(filters);
       if (response.statusCode === 200 && response.data) {
         setArticles(response.data);
+      } else {
+        throw new Error(response.error || "Ошибка загрузки статей");
       }
     } catch (error) {
       toast({
@@ -60,7 +70,7 @@ export default function ArticlesPage() {
 
   const fetchCategories = async () => {
     try {
-      const response = await apiClient.getCategories("ru");
+      const response = await getCategories("ru");
       if (response.statusCode === 200 && response.data) {
         setCategories(response.data);
       }
@@ -71,23 +81,29 @@ export default function ArticlesPage() {
 
   // Функция для получения заголовка статьи на русском языке
   const getArticleTitle = (article: Article) => {
-    const ruTranslation = article.translations.find((t) => t.locale === "ru");
+    const ruTranslation = article.translations.find(
+      (t: Translation) => t.locale === "ru"
+    );
     return ruTranslation?.title || "Без названия";
   };
 
   // Функция для получения описания статьи на русском языке
   const getArticleDescription = (article: Article) => {
-    const ruTranslation = article.translations.find((t) => t.locale === "ru");
+    const ruTranslation = article.translations.find(
+      (t: Translation) => t.locale === "ru"
+    );
     return ruTranslation?.description || "";
   };
 
   // Функция для получения названия категории на русском языке
   const getCategoryName = (category: Category) => {
-    const ruTranslation = category.translations.find((t) => t.locale === "ru");
+    const ruTranslation = category.translations.find(
+      (t: Translation) => t.locale === "ru"
+    );
     return ruTranslation?.title || "Без названия";
   };
 
-  const filteredArticles = articles.filter((article) => {
+  const filteredArticles = (articles || []).filter((article) => {
     const title = getArticleTitle(article);
     const matchesSearch = title
       .toLowerCase()

@@ -10,40 +10,73 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileText, Users, Fish, Eye, Plus, TrendingUp } from "lucide-react";
-import { apiClient } from "@/lib/api-client";
+
 import Link from "next/link";
+import { getUsers } from "../action/users";
+import { getArticles } from "../action/articles";
+import { getInhabitants } from "../action/inhabitants";
 
 export default function Dashboard() {
   const [userCount, setUserCount] = useState<number>(0);
   const [articleCount, setArticleCount] = useState<number>(0);
   const [inhabitantCount, setInhabitantCount] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [errors, setErrors] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchData = async () => {
+      const errorMessages: string[] = [];
+
       try {
         // Получаем количество пользователей
-        const usersResponse = await apiClient.getUsers(1, 1);
+        const usersResponse = await getUsers(1, 1);
         if (usersResponse.statusCode === 200 && usersResponse.data) {
-          setUserCount(usersResponse.data.totalCount);
+          setUserCount(usersResponse.data.totalCount || 0);
+        } else {
+          errorMessages.push(
+            `Ошибка загрузки пользователей: ${usersResponse.error}`
+          );
         }
 
         // Получаем количество статей
-        const articlesResponse = await apiClient.getArticles();
+        const articlesResponse = await getArticles();
         if (articlesResponse.statusCode === 200 && articlesResponse.data) {
-          setArticleCount(articlesResponse.data.length);
+          setArticleCount(
+            Array.isArray(articlesResponse.data)
+              ? articlesResponse.data.length
+              : 0
+          );
+        } else {
+          errorMessages.push(
+            `Ошибка загрузки статей: ${articlesResponse.error}`
+          );
         }
 
         // Получаем количество обитателей
-        const inhabitantsResponse = await apiClient.getInhabitants();
+        const inhabitantsResponse = await getInhabitants();
         if (
           inhabitantsResponse.statusCode === 200 &&
           inhabitantsResponse.data
         ) {
-          setInhabitantCount(inhabitantsResponse.data.length);
+          setInhabitantCount(
+            Array.isArray(inhabitantsResponse.data)
+              ? inhabitantsResponse.data.length
+              : 0
+          );
+        } else {
+          errorMessages.push(
+            `Ошибка загрузки обитателей: ${inhabitantsResponse.error}`
+          );
         }
+
+        setErrors(errorMessages);
       } catch (error) {
         console.error("Ошибка загрузки данных:", error);
+        setErrors([
+          `Общая ошибка: ${
+            error instanceof Error ? error.message : "Неизвестная ошибка"
+          }`,
+        ]);
       } finally {
         setLoading(false);
       }
@@ -88,6 +121,26 @@ export default function Dashboard() {
           </Button>
         </div>
       </div>
+
+      {/* Error Messages */}
+      {errors.length > 0 && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <h3 className="text-red-800 font-semibold mb-2">
+            Ошибки загрузки данных:
+          </h3>
+          <ul className="text-red-700 space-y-1">
+            {errors.map((error, index) => (
+              <li key={index} className="text-sm">
+                • {error}
+              </li>
+            ))}
+          </ul>
+          <p className="text-red-600 text-sm mt-2">
+            Убедитесь, что API сервер запущен и переменные окружения настроены
+            правильно.
+          </p>
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

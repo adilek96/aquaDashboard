@@ -1,172 +1,218 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { useToast } from '@/hooks/use-toast'
-import { Plus, Search, Edit, Trash2, FolderOpen, Languages } from 'lucide-react'
-import { apiClient, type Category, type CreateCategoryRequest, type UpdateCategoryRequest } from '@/lib/api-client'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  FolderOpen,
+  Languages,
+} from "lucide-react";
+
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  createCategory,
+  getCategories,
+  updateCategory,
+  deleteCategory,
+} from "@/app/action/categories";
+import {
+  Translation,
+  Category,
+  CreateCategoryRequest,
+  UpdateCategoryRequest,
+} from "@/types/dashboard";
 
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(true)
-  const [searchTerm, setSearchTerm] = useState('')
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [formData, setFormData] = useState({
-    az: { title: '', description: '' },
-    ru: { title: '', description: '' },
-    en: { title: '', description: '' }
-  })
-  const { toast } = useToast()
+    az: { title: "", description: "" },
+    ru: { title: "", description: "" },
+    en: { title: "", description: "" },
+  });
+  const { toast } = useToast();
 
   useEffect(() => {
-    fetchCategories()
-  }, [])
+    fetchCategories();
+  }, []);
 
   const fetchCategories = async () => {
     try {
-      const response = await apiClient.getCategories('ru')
+      const response = await getCategories();
       if (response.statusCode === 200 && response.data) {
-        setCategories(response.data)
+        setCategories(response.data);
       } else {
-        throw new Error(response.error || 'Ошибка загрузки категорий')
+        throw new Error(response.error || "Ошибка загрузки категорий");
       }
     } catch (error) {
       toast({
         title: "Ошибка",
         description: "Не удалось загрузить категории",
         variant: "destructive",
-      })
+      });
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleCreate = async () => {
     try {
       const categoryData: CreateCategoryRequest = {
-        translations: formData
-      }
-      const response = await apiClient.createCategory(categoryData)
+        translations: formData,
+      };
+      const response = await createCategory(categoryData);
       if (response.statusCode === 200) {
         toast({
           title: "Успешно",
           description: "Категория создана",
-        })
-        setIsCreateDialogOpen(false)
-        resetForm()
-        fetchCategories()
+        });
+        setIsCreateDialogOpen(false);
+        resetForm();
+        fetchCategories();
       } else {
-        throw new Error(response.error || 'Ошибка создания категории')
+        throw new Error(response.error || "Ошибка создания категории");
       }
     } catch (error) {
       toast({
         title: "Ошибка",
         description: "Не удалось создать категорию",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   const handleEdit = async () => {
-    if (!editingCategory) return
+    if (!editingCategory) return;
 
     try {
       const categoryData: UpdateCategoryRequest = {
         id: editingCategory.id,
-        translations: formData
-      }
-      const response = await apiClient.updateCategory(categoryData)
+        translations: formData,
+      };
+      const response = await updateCategory(categoryData);
       if (response.statusCode === 200) {
         toast({
           title: "Успешно",
           description: "Категория обновлена",
-        })
-        setIsEditDialogOpen(false)
-        resetForm()
-        fetchCategories()
+        });
+        setIsEditDialogOpen(false);
+        resetForm();
+        fetchCategories();
       } else {
-        throw new Error(response.error || 'Ошибка обновления категории')
+        throw new Error(response.error || "Ошибка обновления категории");
       }
     } catch (error) {
       toast({
         title: "Ошибка",
         description: "Не удалось обновить категорию",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Вы уверены, что хотите удалить эту категорию?')) return
+    if (!confirm("Вы уверены, что хотите удалить эту категорию?")) return;
 
     try {
-      const response = await apiClient.deleteCategory(id)
+      const response = await deleteCategory(id);
+
       if (response.statusCode === 200) {
         toast({
           title: "Успешно",
           description: "Категория удалена",
-        })
-        fetchCategories()
+        });
+        fetchCategories();
       } else {
-        throw new Error(response.error || 'Ошибка удаления категории')
+        throw new Error(response.error || "Ошибка удаления категории");
       }
     } catch (error) {
       toast({
         title: "Ошибка",
         description: "Не удалось удалить категорию",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   const openEditDialog = (category: Category) => {
-    setEditingCategory(category)
-    
+    setEditingCategory(category);
+
     // Заполняем форму данными категории
-    const ruTranslation = category.translations.find(t => t.locale === 'ru')
-    const azTranslation = category.translations.find(t => t.locale === 'az')
-    const enTranslation = category.translations.find(t => t.locale === 'en')
-    
+    const ruTranslation = category.translations.find(
+      (t: Translation) => t.locale === "ru"
+    );
+    const azTranslation = category.translations.find(
+      (t: Translation) => t.locale === "az"
+    );
+    const enTranslation = category.translations.find(
+      (t: Translation) => t.locale === "en"
+    );
+
     setFormData({
       ru: {
-        title: ruTranslation?.title || '',
-        description: ruTranslation?.description || ''
+        title: ruTranslation?.title || "",
+        description: ruTranslation?.description || "",
       },
       az: {
-        title: azTranslation?.title || '',
-        description: azTranslation?.description || ''
+        title: azTranslation?.title || "",
+        description: azTranslation?.description || "",
       },
       en: {
-        title: enTranslation?.title || '',
-        description: enTranslation?.description || ''
-      }
-    })
-    setIsEditDialogOpen(true)
-  }
+        title: enTranslation?.title || "",
+        description: enTranslation?.description || "",
+      },
+    });
+    setIsEditDialogOpen(true);
+  };
 
   const resetForm = () => {
     setFormData({
-      az: { title: '', description: '' },
-      ru: { title: '', description: '' },
-      en: { title: '', description: '' }
-    })
-    setEditingCategory(null)
-  }
+      az: { title: "", description: "" },
+      ru: { title: "", description: "" },
+      en: { title: "", description: "" },
+    });
+    setEditingCategory(null);
+  };
 
-  const filteredCategories = categories.filter(category => {
-    const ruTranslation = category.translations.find(t => t.locale === 'ru')
-    return ruTranslation?.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           ruTranslation?.description?.toLowerCase().includes(searchTerm.toLowerCase())
-  })
+  const filteredCategories = (categories || []).filter((category) => {
+    const ruTranslation = category.translations.find(
+      (t: Translation) => t.locale === "ru"
+    );
+    return (
+      ruTranslation?.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ruTranslation?.description
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase())
+    );
+  });
 
   if (loading) {
     return (
@@ -180,7 +226,7 @@ export default function CategoriesPage() {
           </div>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -213,17 +259,19 @@ export default function CategoriesPage() {
                   <TabsTrigger value="az">Азербайджанский</TabsTrigger>
                   <TabsTrigger value="en">Английский</TabsTrigger>
                 </TabsList>
-                
+
                 <TabsContent value="ru" className="space-y-4">
                   <div>
                     <Label htmlFor="ru-title">Заголовок (Русский)</Label>
                     <Input
                       id="ru-title"
                       value={formData.ru.title}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        ru: { ...formData.ru, title: e.target.value }
-                      })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          ru: { ...formData.ru, title: e.target.value },
+                        })
+                      }
                       placeholder="Введите заголовок на русском"
                     />
                   </div>
@@ -232,10 +280,12 @@ export default function CategoriesPage() {
                     <Textarea
                       id="ru-description"
                       value={formData.ru.description}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        ru: { ...formData.ru, description: e.target.value }
-                      })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          ru: { ...formData.ru, description: e.target.value },
+                        })
+                      }
                       placeholder="Введите описание на русском"
                       rows={3}
                     />
@@ -244,26 +294,34 @@ export default function CategoriesPage() {
 
                 <TabsContent value="az" className="space-y-4">
                   <div>
-                    <Label htmlFor="az-title">Заголовок (Азербайджанский)</Label>
+                    <Label htmlFor="az-title">
+                      Заголовок (Азербайджанский)
+                    </Label>
                     <Input
                       id="az-title"
                       value={formData.az.title}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        az: { ...formData.az, title: e.target.value }
-                      })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          az: { ...formData.az, title: e.target.value },
+                        })
+                      }
                       placeholder="Введите заголовок на азербайджанском"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="az-description">Описание (Азербайджанский)</Label>
+                    <Label htmlFor="az-description">
+                      Описание (Азербайджанский)
+                    </Label>
                     <Textarea
                       id="az-description"
                       value={formData.az.description}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        az: { ...formData.az, description: e.target.value }
-                      })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          az: { ...formData.az, description: e.target.value },
+                        })
+                      }
                       placeholder="Введите описание на азербайджанском"
                       rows={3}
                     />
@@ -276,22 +334,28 @@ export default function CategoriesPage() {
                     <Input
                       id="en-title"
                       value={formData.en.title}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        en: { ...formData.en, title: e.target.value }
-                      })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          en: { ...formData.en, title: e.target.value },
+                        })
+                      }
                       placeholder="Введите заголовок на английском"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="en-description">Описание (Английский)</Label>
+                    <Label htmlFor="en-description">
+                      Описание (Английский)
+                    </Label>
                     <Textarea
                       id="en-description"
                       value={formData.en.description}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        en: { ...formData.en, description: e.target.value }
-                      })}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          en: { ...formData.en, description: e.target.value },
+                        })
+                      }
                       placeholder="Введите описание на английском"
                       rows={3}
                     />
@@ -300,7 +364,10 @@ export default function CategoriesPage() {
               </Tabs>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+              <Button
+                variant="outline"
+                onClick={() => setIsCreateDialogOpen(false)}
+              >
                 Отмена
               </Button>
               <Button onClick={handleCreate}>Создать категорию</Button>
@@ -323,10 +390,16 @@ export default function CategoriesPage() {
 
       <div className="grid gap-4">
         {filteredCategories.map((category) => {
-          const ruTranslation = category.translations.find(t => t.locale === 'ru')
-          const azTranslation = category.translations.find(t => t.locale === 'az')
-          const enTranslation = category.translations.find(t => t.locale === 'en')
-          
+          const ruTranslation = category.translations.find(
+            (t: Translation) => t.locale === "ru"
+          );
+          const azTranslation = category.translations.find(
+            (t: Translation) => t.locale === "az"
+          );
+          const enTranslation = category.translations.find(
+            (t: Translation) => t.locale === "en"
+          );
+
           return (
             <Card key={category.id}>
               <CardHeader>
@@ -334,14 +407,17 @@ export default function CategoriesPage() {
                   <div className="flex-1">
                     <CardTitle className="flex items-center gap-2">
                       <FolderOpen className="w-5 h-5" />
-                      {ruTranslation?.title || 'Без названия'}
+                      {ruTranslation?.title || "Без названия"}
                     </CardTitle>
                     <CardDescription>
-                      {ruTranslation?.description || 'Без описания'}
+                      {ruTranslation?.description || "Без описания"}
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline" className="flex items-center gap-1">
+                    <Badge
+                      variant="outline"
+                      className="flex items-center gap-1"
+                    >
                       <Languages className="w-3 h-3" />
                       {category.translations.length}/3
                     </Badge>
@@ -366,20 +442,26 @@ export default function CategoriesPage() {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
                   <div>
                     <h4 className="font-semibold mb-1">Русский</h4>
-                    <p className="text-muted-foreground">{ruTranslation?.title || 'Не переведено'}</p>
+                    <p className="text-muted-foreground">
+                      {ruTranslation?.title || "Не переведено"}
+                    </p>
                   </div>
                   <div>
                     <h4 className="font-semibold mb-1">Азербайджанский</h4>
-                    <p className="text-muted-foreground">{azTranslation?.title || 'Не переведено'}</p>
+                    <p className="text-muted-foreground">
+                      {azTranslation?.title || "Не переведено"}
+                    </p>
                   </div>
                   <div>
                     <h4 className="font-semibold mb-1">Английский</h4>
-                    <p className="text-muted-foreground">{enTranslation?.title || 'Не переведено'}</p>
+                    <p className="text-muted-foreground">
+                      {enTranslation?.title || "Не переведено"}
+                    </p>
                   </div>
                 </div>
               </CardContent>
             </Card>
-          )
+          );
         })}
       </div>
 
@@ -393,9 +475,8 @@ export default function CategoriesPage() {
               </h3>
               <p className="text-muted-foreground mb-4">
                 {searchTerm
-                  ? 'Попробуйте изменить поисковый запрос'
-                  : 'Создайте первую категорию для начала работы'
-                }
+                  ? "Попробуйте изменить поисковый запрос"
+                  : "Создайте первую категорию для начала работы"}
               </p>
               <Button onClick={() => setIsCreateDialogOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
@@ -411,9 +492,7 @@ export default function CategoriesPage() {
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Редактировать категорию</DialogTitle>
-            <DialogDescription>
-              Внесите изменения в категорию
-            </DialogDescription>
+            <DialogDescription>Внесите изменения в категорию</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <Tabs defaultValue="ru" className="w-full">
@@ -422,29 +501,35 @@ export default function CategoriesPage() {
                 <TabsTrigger value="az">Азербайджанский</TabsTrigger>
                 <TabsTrigger value="en">Английский</TabsTrigger>
               </TabsList>
-              
+
               <TabsContent value="ru" className="space-y-4">
                 <div>
                   <Label htmlFor="edit-ru-title">Заголовок (Русский)</Label>
                   <Input
                     id="edit-ru-title"
                     value={formData.ru.title}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      ru: { ...formData.ru, title: e.target.value }
-                    })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        ru: { ...formData.ru, title: e.target.value },
+                      })
+                    }
                     placeholder="Введите заголовок на русском"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="edit-ru-description">Описание (Русский)</Label>
+                  <Label htmlFor="edit-ru-description">
+                    Описание (Русский)
+                  </Label>
                   <Textarea
                     id="edit-ru-description"
                     value={formData.ru.description}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      ru: { ...formData.ru, description: e.target.value }
-                    })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        ru: { ...formData.ru, description: e.target.value },
+                      })
+                    }
                     placeholder="Введите описание на русском"
                     rows={3}
                   />
@@ -453,26 +538,34 @@ export default function CategoriesPage() {
 
               <TabsContent value="az" className="space-y-4">
                 <div>
-                  <Label htmlFor="edit-az-title">Заголовок (Азербайджанский)</Label>
+                  <Label htmlFor="edit-az-title">
+                    Заголовок (Азербайджанский)
+                  </Label>
                   <Input
                     id="edit-az-title"
                     value={formData.az.title}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      az: { ...formData.az, title: e.target.value }
-                    })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        az: { ...formData.az, title: e.target.value },
+                      })
+                    }
                     placeholder="Введите заголовок на азербайджанском"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="edit-az-description">Описание (Азербайджанский)</Label>
+                  <Label htmlFor="edit-az-description">
+                    Описание (Азербайджанский)
+                  </Label>
                   <Textarea
                     id="edit-az-description"
                     value={formData.az.description}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      az: { ...formData.az, description: e.target.value }
-                    })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        az: { ...formData.az, description: e.target.value },
+                      })
+                    }
                     placeholder="Введите описание на азербайджанском"
                     rows={3}
                   />
@@ -485,22 +578,28 @@ export default function CategoriesPage() {
                   <Input
                     id="edit-en-title"
                     value={formData.en.title}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      en: { ...formData.en, title: e.target.value }
-                    })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        en: { ...formData.en, title: e.target.value },
+                      })
+                    }
                     placeholder="Введите заголовок на английском"
                   />
                 </div>
                 <div>
-                  <Label htmlFor="edit-en-description">Описание (Английский)</Label>
+                  <Label htmlFor="edit-en-description">
+                    Описание (Английский)
+                  </Label>
                   <Textarea
                     id="edit-en-description"
                     value={formData.en.description}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      en: { ...formData.en, description: e.target.value }
-                    })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        en: { ...formData.en, description: e.target.value },
+                      })
+                    }
                     placeholder="Введите описание на английском"
                     rows={3}
                   />
@@ -509,7 +608,10 @@ export default function CategoriesPage() {
             </Tabs>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsEditDialogOpen(false)}
+            >
               Отмена
             </Button>
             <Button onClick={handleEdit}>Сохранить изменения</Button>
@@ -517,5 +619,5 @@ export default function CategoriesPage() {
         </DialogContent>
       </Dialog>
     </div>
-  )
+  );
 }
