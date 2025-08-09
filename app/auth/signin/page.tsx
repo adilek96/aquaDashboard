@@ -36,8 +36,6 @@ export default function SignIn() {
         callbackUrl: "/",
       });
 
-      console.log("Результат входа:", result);
-
       if (result?.error) {
         setError("Неверный логин или пароль");
       } else if (result?.ok) {

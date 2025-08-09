@@ -1,0 +1,266 @@
+/* Tiptap Editor Styles */
+
+/* Базовые стили для редактора */
+.ProseMirror {
+  outline: none;
+  padding: 1rem;
+  min-height: 200px;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: hsl(var(--muted-foreground));
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+/* Заголовки */
+.ProseMirror h1 {
+  font-size: 2em;
+  font-weight: 700;
+  margin: 1em 0 0.5em 0;
+  color: hsl(var(--foreground));
+}
+
+.ProseMirror h2 {
+  font-size: 1.75em;
+  font-weight: 600;
+  margin: 1em 0 0.5em 0;
+  color: hsl(var(--foreground));
+}
+
+.ProseMirror h3 {
+  font-size: 1.5em;
+  font-weight: 600;
+  margin: 1em 0 0.5em 0;
+  color: hsl(var(--foreground));
+}
+
+.ProseMirror h4 {
+  font-size: 1.25em;
+  font-weight: 600;
+  margin: 1em 0 0.5em 0;
+  color: hsl(var(--foreground));
+}
+
+.ProseMirror h5 {
+  font-size: 1.1em;
+  font-weight: 600;
+  margin: 1em 0 0.5em 0;
+  color: hsl(var(--foreground));
+}
+
+.ProseMirror h6 {
+  font-size: 1em;
+  font-weight: 700;
+  margin: 1em 0 0.5em 0;
+  color: hsl(var(--foreground));
+}
+
+/* Параграфы */
+.ProseMirror p {
+  margin: 0.5em 0;
+  line-height: 1.6;
+  color: hsl(var(--foreground));
+}
+
+/* Списки */
+.ProseMirror ul,
+.ProseMirror ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.ProseMirror li {
+  margin: 0.25em 0;
+  line-height: 1.6;
+  color: hsl(var(--foreground));
+}
+
+/* Цитаты */
+.ProseMirror blockquote {
+  border-left: 4px solid hsl(var(--border));
+  padding-left: 1em;
+  margin: 1em 0;
+  font-style: italic;
+  background: hsl(var(--muted) / 0.3);
+  border-radius: 0 4px 4px 0;
+  padding: 1em;
+}
+
+.ProseMirror blockquote p {
+  margin: 0;
+  font-size: 1.1em;
+  color: hsl(var(--foreground));
+}
+
+.ProseMirror blockquote footer {
+  margin-top: 0.5em;
+  font-size: 0.9em;
+  color: hsl(var(--muted-foreground));
+  font-style: normal;
+}
+
+/* Код */
+.ProseMirror code {
+  background: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+  font-family: 'Monaco', 'Consolas', 'Ubuntu Mono', monospace;
+  font-size: 0.9em;
+  color: hsl(var(--foreground));
+}
+
+.ProseMirror pre {
+  background: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  padding: 1em;
+  margin: 1em 0;
+  overflow-x: auto;
+}
+
+.ProseMirror pre code {
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: 'Monaco', 'Consolas', 'Ubuntu Mono', monospace;
+  font-size: 0.9em;
+  color: hsl(var(--foreground));
+}
+
+/* Выделение */
+.ProseMirror mark {
+  background: hsl(var(--primary) / 0.2);
+  padding: 0.1em 0.2em;
+  border-radius: 2px;
+  color: hsl(var(--foreground));
+}
+
+/* Ссылки */
+.ProseMirror a {
+  color: hsl(var(--primary));
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ProseMirror a:hover {
+  color: hsl(var(--primary) / 0.8);
+}
+
+/* Изображения */
+.ProseMirror img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin: 1em 0;
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Таблицы */
+.ProseMirror table {
+  border-collapse: collapse;
+  margin: 1em 0;
+  overflow: hidden;
+  table-layout: fixed;
+  width: 100%;
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+}
+
+.ProseMirror td,
+.ProseMirror th {
+  border: 1px solid hsl(var(--border));
+  box-sizing: border-box;
+  min-width: 1em;
+  padding: 0.75em;
+  position: relative;
+  vertical-align: top;
+  color: hsl(var(--foreground));
+}
+
+.ProseMirror th {
+  background: hsl(var(--muted));
+  font-weight: 600;
+  text-align: left;
+}
+
+.ProseMirror .selectedCell:after {
+  background: hsl(var(--primary) / 0.2);
+  content: "";
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  position: absolute;
+  z-index: 2;
+}
+
+/* Разделители */
+.ProseMirror hr {
+  border: none;
+  border-top: 2px solid hsl(var(--border));
+  margin: 2em 0;
+}
+
+/* Выравнивание текста */
+.ProseMirror .has-text-align-left {
+  text-align: left;
+}
+
+.ProseMirror .has-text-align-center {
+  text-align: center;
+}
+
+.ProseMirror .has-text-align-right {
+  text-align: right;
+}
+
+.ProseMirror .has-text-align-justify {
+  text-align: justify;
+}
+
+/* Фокус стили */
+.ProseMirror:focus {
+  outline: none;
+}
+
+/* Выделение */
+.ProseMirror ::selection {
+  background: hsl(var(--primary) / 0.2);
+}
+
+/* Пустой документ */
+.ProseMirror.ProseMirror-focused .is-empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  color: hsl(var(--muted-foreground));
+  pointer-events: none;
+  height: 0;
+}
+
+/* Анимации */
+.ProseMirror * {
+  transition: all 0.2s ease;
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .ProseMirror {
+    padding: 0.75rem;
+  }
+  
+  .ProseMirror table {
+    font-size: 0.9em;
+  }
+  
+  .ProseMirror td,
+  .ProseMirror th {
+    padding: 0.5em;
+  }
+}

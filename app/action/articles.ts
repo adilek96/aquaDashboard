@@ -73,7 +73,6 @@ export const getArticles = async (filters?: { locale?: string; subCategoryId?: s
 
 
 export const createArticle = async (body: any) => {
-    console.log('createArticle', body);
     try {
         if (!apiUrl) {
             throw new Error('API_URL не настроен');
@@ -83,8 +82,7 @@ export const createArticle = async (body: any) => {
             throw new Error('ADMIN_TOKEN не настроен');
         }
 
-        console.log('Создание статьи. API URL:', apiUrl);
-        console.log('Данные для отправки:', body);
+
 
         const response = await fetch(`${apiUrl}/articles/article`, {
             method: 'POST',
@@ -96,7 +94,7 @@ export const createArticle = async (body: any) => {
             body: JSON.stringify(body)
         });
 
-        console.log('Ответ сервера. Статус:', response.status);
+
 
         if (!response.ok) {
             const errorText = await response.text();
@@ -122,7 +120,6 @@ export const createArticle = async (body: any) => {
         }
 
         const data = await response.json();
-        console.log('Успешный ответ API:', data);
         
         return {
             statusCode: response.status === 201 ? 201 : (data.statusCode || 200),
@@ -197,13 +194,15 @@ export const updateArticle = async (body: any) => {
 
 
 
-export const getArticleById = async (id: string, locale: string = 'ru') => {
+export const getArticleById = async (id: string, locale?: string) => {
     try {
         if (!apiUrl) {
             throw new Error('API_URL не настроен');
         }
 
-        const response = await fetch(`${apiUrl}/articles/article/${id}?locale=${locale}`, {
+        // Если locale не указан, получаем все переводы. Если указан - только указанный язык
+        const url = locale ? `${apiUrl}/articles/article/${id}?locale=${locale}` : `${apiUrl}/articles/article/${id}`;
+        const response = await fetch(url, {
             headers: {
                 'Authorization': `Bearer ${adminToken}`,
                 'Accept': 'application/json',

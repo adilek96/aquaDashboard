@@ -45,7 +45,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { deleteArticle, getArticles } from "@/app/action/articles";
+import {
+  deleteArticle,
+  getArticles,
+  getArticleById,
+} from "@/app/action/articles";
 import { getCategories } from "@/app/action/categories";
 import { getSubCategories } from "@/app/action/subcategories";
 import {
@@ -69,15 +73,67 @@ const ArticleCard = memo(
     onEdit: (article: Article) => void;
     onDelete: (id: string) => void;
   }) => {
-    const ruTranslation = article.translations?.find(
-      (t: Translation) => t.locale === "ru"
+    // Новый подход: используем React state для загрузки переводов асинхронно
+    const [translationStatus, setTranslationStatus] = useState<{
+      ru: boolean;
+      az: boolean;
+      en: boolean;
+    }>({ ru: false, az: false, en: false });
+
+    const [isLoadingTranslations, setIsLoadingTranslations] = useState(true);
+
+    // Функция для проверки наличия перевода по длине заголовка и описания
+    const checkTranslationExists = useCallback(
+      async (articleId: string, locale: string) => {
+        try {
+          const response = await getArticleById(articleId, locale);
+
+          if (response.statusCode === 200 && response.data) {
+            const article = response.data;
+
+            const hasValidTitle =
+              article.title &&
+              article.title.trim().length > 0 &&
+              article.title.trim() !== "Без названия";
+            return hasValidTitle;
+          }
+          return false;
+        } catch (error) {
+          return false;
+        }
+      },
+      []
     );
-    const azTranslation = article.translations?.find(
-      (t: Translation) => t.locale === "az"
-    );
-    const enTranslation = article.translations?.find(
-      (t: Translation) => t.locale === "en"
-    );
+
+    // Загружаем статус переводов при монтировании карточки
+    useEffect(() => {
+      const loadTranslationStatus = async () => {
+        setIsLoadingTranslations(true);
+        try {
+          const [ruExists, azExists, enExists] = await Promise.all([
+            checkTranslationExists(article.id, "ru"),
+            checkTranslationExists(article.id, "az"),
+            checkTranslationExists(article.id, "en"),
+          ]);
+
+          setTranslationStatus({
+            ru: ruExists,
+            az: azExists,
+            en: enExists,
+          });
+        } catch (error) {
+        } finally {
+          setIsLoadingTranslations(false);
+        }
+      };
+
+      loadTranslationStatus();
+    }, [article.id, checkTranslationExists]);
+
+    // Определяем наличие переводов из state
+    const hasRuTranslation = translationStatus.ru;
+    const hasAzTranslation = translationStatus.az;
+    const hasEnTranslation = translationStatus.en;
     const subCategory = subCategories.find(
       (sc) => sc.id === article.subCategoryId
     );
@@ -99,29 +155,83 @@ const ArticleCard = memo(
               <CardTitle className="flex items-start gap-2 mb-3 text-base lg:text-lg">
                 <FileText className="w-5 h-5 shrink-0 mt-0.5" />
                 <span className="break-words">
-                  {ruTranslation?.title || "Без названия"}
+                  {article.title || "Без названия"}
                 </span>
               </CardTitle>
               <div className="flex items-center gap-2">
                 {/* Индикаторы языков */}
                 <div className="flex items-center gap-1">
                   <Badge
-                    variant={ruTranslation?.title ? "default" : "secondary"}
-                    className="text-xs px-2 py-0.5"
+                    variant={hasRuTranslation ? "default" : "secondary"}
+                    className={`text-xs px-2 py-0.5 ${
+                      isLoadingTranslations
+                        ? "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900 dark:text-yellow-300 dark:border-yellow-700"
+                        : hasRuTranslation
+                        ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-900 dark:text-green-300 dark:border-green-700"
+                        : "bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
+                    }`}
+                    title={
+                      isLoadingTranslations
+                        ? "Загрузка..."
+                        : hasRuTranslation
+                        ? "Перевод на русский: есть"
+                        : "Перевод на русский: отсутствует"
+                    }
                   >
-                    RU
+                    RU{" "}
+                    {isLoadingTranslations
+                      ? "⏳"
+                      : hasRuTranslation
+                      ? "✓"
+                      : "✗"}
                   </Badge>
                   <Badge
-                    variant={azTranslation?.title ? "default" : "secondary"}
-                    className="text-xs px-2 py-0.5"
+                    variant={hasAzTranslation ? "default" : "secondary"}
+                    className={`text-xs px-2 py-0.5 ${
+                      isLoadingTranslations
+                        ? "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900 dark:text-yellow-300 dark:border-yellow-700"
+                        : hasAzTranslation
+                        ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-900 dark:text-green-300 dark:border-green-700"
+                        : "bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
+                    }`}
+                    title={
+                      isLoadingTranslations
+                        ? "Загрузка..."
+                        : hasAzTranslation
+                        ? "Перевод на азербайджанский: есть"
+                        : "Перевод на азербайджанский: отсутствует"
+                    }
                   >
-                    AZ
+                    AZ{" "}
+                    {isLoadingTranslations
+                      ? "⏳"
+                      : hasAzTranslation
+                      ? "✓"
+                      : "✗"}
                   </Badge>
                   <Badge
-                    variant={enTranslation?.title ? "default" : "secondary"}
-                    className="text-xs px-2 py-0.5"
+                    variant={hasEnTranslation ? "default" : "secondary"}
+                    className={`text-xs px-2 py-0.5 ${
+                      isLoadingTranslations
+                        ? "bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900 dark:text-yellow-300 dark:border-yellow-700"
+                        : hasEnTranslation
+                        ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-900 dark:text-green-300 dark:border-green-700"
+                        : "bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
+                    }`}
+                    title={
+                      isLoadingTranslations
+                        ? "Загрузка..."
+                        : hasEnTranslation
+                        ? "Перевод на английский: есть"
+                        : "Перевод на английский: отсутствует"
+                    }
                   >
-                    EN
+                    EN{" "}
+                    {isLoadingTranslations
+                      ? "⏳"
+                      : hasEnTranslation
+                      ? "✓"
+                      : "✗"}
                   </Badge>
                 </div>
               </div>
@@ -197,7 +307,8 @@ const ContentPageContent = memo(() => {
   const fetchArticles = useCallback(async () => {
     try {
       const filters = {
-        locale: "ru",
+        // Убираем locale чтобы получить ВСЕ переводы, а не только русский
+        // locale: "ru",
         subCategoryId:
           subCategoryFilter !== "all" ? subCategoryFilter : undefined,
       };
@@ -219,6 +330,7 @@ const ContentPageContent = memo(() => {
             },
           ],
         }));
+
         setArticles(articlesWithSubCategoryId);
       } else {
         throw new Error(response.error || "Ошибка загрузки статей");

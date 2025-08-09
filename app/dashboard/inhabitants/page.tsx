@@ -289,7 +289,7 @@ export default function InhabitantsPage() {
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label htmlFor="type">Тип аквариума</Label>
+                  <Label>Тип аквариума</Label>
                   <Select
                     value={formData.type}
                     onValueChange={(value: AquariumType) =>
@@ -313,7 +313,7 @@ export default function InhabitantsPage() {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="subtype">Подтип</Label>
+                  <Label>Подтип</Label>
                   <Select
                     value={formData.subtype}
                     onValueChange={(value: Subtype) =>
@@ -529,24 +529,101 @@ export default function InhabitantsPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                <div className="space-y-3">
                   <div>
-                    <h4 className="font-semibold mb-1">Русский</h4>
-                    <p className="text-muted-foreground">
-                      {ruTranslation?.title || "Не переведено"}
-                    </p>
+                    <h4 className="font-semibold mb-2 text-sm text-muted-foreground">
+                      Переводы:
+                    </h4>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {(() => {
+                        // Проверяем наличие переводов
+                        const hasRuTranslation =
+                          ruTranslation?.title &&
+                          ruTranslation.title.trim() !== "";
+                        const hasAzTranslation =
+                          azTranslation?.title &&
+                          azTranslation.title.trim() !== "";
+                        const hasEnTranslation =
+                          enTranslation?.title &&
+                          enTranslation.title.trim() !== "";
+
+                        return (
+                          <>
+                            <Badge
+                              variant={
+                                hasRuTranslation ? "default" : "secondary"
+                              }
+                              className={`text-xs px-2 py-0.5 ${
+                                hasRuTranslation
+                                  ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-900 dark:text-green-300 dark:border-green-700"
+                                  : "bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
+                              }`}
+                              title={
+                                hasRuTranslation
+                                  ? "Перевод на русский: есть"
+                                  : "Перевод на русский: отсутствует"
+                              }
+                            >
+                              RU {hasRuTranslation ? "✓" : "✗"}
+                            </Badge>
+                            <Badge
+                              variant={
+                                hasAzTranslation ? "default" : "secondary"
+                              }
+                              className={`text-xs px-2 py-0.5 ${
+                                hasAzTranslation
+                                  ? "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:border-blue-700"
+                                  : "bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
+                              }`}
+                              title={
+                                hasAzTranslation
+                                  ? "Перевод на азербайджанский: есть"
+                                  : "Перевод на азербайджанский: отсутствует"
+                              }
+                            >
+                              AZ {hasAzTranslation ? "✓" : "✗"}
+                            </Badge>
+                            <Badge
+                              variant={
+                                hasEnTranslation ? "default" : "secondary"
+                              }
+                              className={`text-xs px-2 py-0.5 ${
+                                hasEnTranslation
+                                  ? "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900 dark:text-purple-300 dark:border-purple-700"
+                                  : "bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
+                              }`}
+                              title={
+                                hasEnTranslation
+                                  ? "Перевод на английский: есть"
+                                  : "Перевод на английский: отсутствует"
+                              }
+                            >
+                              EN {hasEnTranslation ? "✓" : "✗"}
+                            </Badge>
+                          </>
+                        );
+                      })()}
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="font-semibold mb-1">Азербайджанский</h4>
-                    <p className="text-muted-foreground">
-                      {azTranslation?.title || "Не переведено"}
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-1">Английский</h4>
-                    <p className="text-muted-foreground">
-                      {enTranslation?.title || "Не переведено"}
-                    </p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <h5 className="font-medium mb-1">Русский</h5>
+                      <p className="text-muted-foreground text-xs">
+                        {ruTranslation?.title || "Не переведено"}
+                      </p>
+                    </div>
+                    <div>
+                      <h5 className="font-medium mb-1">Азербайджанский</h5>
+                      <p className="text-muted-foreground text-xs">
+                        {azTranslation?.title || "Не переведено"}
+                      </p>
+                    </div>
+                    <div>
+                      <h5 className="font-medium mb-1">Английский</h5>
+                      <p className="text-muted-foreground text-xs">
+                        {enTranslation?.title || "Не переведено"}
+                      </p>
+                    </div>
                   </div>
                 </div>
                 <div className="mt-4 pt-4 border-t">
@@ -616,7 +693,7 @@ export default function InhabitantsPage() {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="edit-type">Тип аквариума</Label>
+                <Label>Тип аквариума</Label>
                 <Select
                   value={formData.type}
                   onValueChange={(value: AquariumType) =>
@@ -640,7 +717,7 @@ export default function InhabitantsPage() {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="edit-subtype">Подтип</Label>
+                <Label>Подтип</Label>
                 <Select
                   value={formData.subtype}
                   onValueChange={(value: Subtype) =>

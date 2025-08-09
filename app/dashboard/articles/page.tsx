@@ -47,7 +47,8 @@ export default function ArticlesPage() {
   const fetchArticles = async () => {
     try {
       const filters = {
-        locale: "ru",
+        // Убираем locale чтобы получить ВСЕ переводы, а не только русский
+        // locale: "ru",
         subCategoryId:
           subCategoryFilter !== "all" ? subCategoryFilter : undefined,
       };
@@ -81,18 +82,18 @@ export default function ArticlesPage() {
 
   // Функция для получения заголовка статьи на русском языке
   const getArticleTitle = (article: Article) => {
-    const ruTranslation = article.translations.find(
+    const ruTranslation = article.translations?.find(
       (t: Translation) => t.locale === "ru"
     );
-    return ruTranslation?.title || "Без названия";
+    return ruTranslation?.title || article.title || "Без названия";
   };
 
   // Функция для получения описания статьи на русском языке
   const getArticleDescription = (article: Article) => {
-    const ruTranslation = article.translations.find(
+    const ruTranslation = article.translations?.find(
       (t: Translation) => t.locale === "ru"
     );
-    return ruTranslation?.description || "";
+    return ruTranslation?.description || article.description || "";
   };
 
   // Функция для получения названия категории на русском языке
@@ -215,9 +216,92 @@ export default function ArticlesPage() {
                   </div>
                 )}
                 {article.translations && (
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="w-4 h-4" />
-                    <span>Переводы: {article.translations.length} языков</span>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Calendar className="w-4 h-4" />
+                      <span>Переводы:</span>
+                    </div>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {(() => {
+                        // Получаем переводы для каждого языка
+                        const ruTranslation = article.translations?.find(
+                          (t: any) => t.locale === "ru"
+                        );
+                        const azTranslation = article.translations?.find(
+                          (t: any) => t.locale === "az"
+                        );
+                        const enTranslation = article.translations?.find(
+                          (t: any) => t.locale === "en"
+                        );
+
+                        // Проверяем наличие переводов
+                        const hasRuTranslation =
+                          ruTranslation?.title &&
+                          ruTranslation.title.trim() !== "";
+                        const hasAzTranslation =
+                          azTranslation?.title &&
+                          azTranslation.title.trim() !== "";
+                        const hasEnTranslation =
+                          enTranslation?.title &&
+                          enTranslation.title.trim() !== "";
+
+                        return (
+                          <>
+                            <Badge
+                              variant={
+                                hasRuTranslation ? "default" : "secondary"
+                              }
+                              className={`text-xs px-2 py-0.5 ${
+                                hasRuTranslation
+                                  ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-900 dark:text-green-300 dark:border-green-700"
+                                  : "bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
+                              }`}
+                              title={
+                                hasRuTranslation
+                                  ? "Перевод на русский: есть"
+                                  : "Перевод на русский: отсутствует"
+                              }
+                            >
+                              RU {hasRuTranslation ? "✓" : "✗"}
+                            </Badge>
+                            <Badge
+                              variant={
+                                hasAzTranslation ? "default" : "secondary"
+                              }
+                              className={`text-xs px-2 py-0.5 ${
+                                hasAzTranslation
+                                  ? "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:border-blue-700"
+                                  : "bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
+                              }`}
+                              title={
+                                hasAzTranslation
+                                  ? "Перевод на азербайджанский: есть"
+                                  : "Перевод на азербайджанский: отсутствует"
+                              }
+                            >
+                              AZ {hasAzTranslation ? "✓" : "✗"}
+                            </Badge>
+                            <Badge
+                              variant={
+                                hasEnTranslation ? "default" : "secondary"
+                              }
+                              className={`text-xs px-2 py-0.5 ${
+                                hasEnTranslation
+                                  ? "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900 dark:text-purple-300 dark:border-purple-700"
+                                  : "bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
+                              }`}
+                              title={
+                                hasEnTranslation
+                                  ? "Перевод на английский: есть"
+                                  : "Перевод на английский: отсутствует"
+                              }
+                            >
+                              EN {hasEnTranslation ? "✓" : "✗"}
+                            </Badge>
+                          </>
+                        );
+                      })()}
+                    </div>
                   </div>
                 )}
               </div>

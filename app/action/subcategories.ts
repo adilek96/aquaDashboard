@@ -93,7 +93,6 @@ export async function createSubCategory(body: any) {
 
 
 export async function updateSubCategory(body: any) {
-    console.log(body)
     try {
         const response = await fetch(`${apiUrl}/subcategories/subcategory`, {
             method: 'PATCH',

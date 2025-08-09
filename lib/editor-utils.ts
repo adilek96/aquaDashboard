@@ -12,11 +12,24 @@ export interface EditorData {
 }
 
 /**
- * Валидирует и очищает данные EditorJS
+ * Валидирует и очищает данные EditorJS (теперь поддерживает и HTML от Tiptap)
  */
 export function validateEditorData(data: any): EditorData {
   if (!data || typeof data !== 'object') {
     return { blocks: [] };
+  }
+
+  // Если это HTML строка от Tiptap, конвертируем в формат EditorJS
+  if (typeof data === 'string') {
+    return {
+      blocks: [{
+        type: 'paragraph',
+        data: {
+          text: data
+        }
+      }],
+      version: "2.28.2"
+    };
   }
 
   if (!Array.isArray(data.blocks)) {
@@ -112,7 +125,10 @@ export function validateEditorData(data: any): EditorData {
           type: 'simpleImage',
           data: {
             url: String(block.data.url || ''),
-            caption: String(block.data.caption || '')
+            caption: String(block.data.caption || ''),
+            withBorder: Boolean(block.data.withBorder),
+            withBackground: Boolean(block.data.withBackground),
+            stretched: Boolean(block.data.stretched)
           },
           id: block.id
         };
@@ -188,9 +204,16 @@ export function parseEditorContent(content: string): EditorData {
 }
 
 /**
- * Проверяет, содержит ли EditorJS данные какой-либо контент
+ * Проверяет, содержит ли данные редактора какой-либо контент (EditorJS или HTML)
  */
-export function hasEditorContent(data: EditorData): boolean {
+export function hasEditorContent(data: EditorData | string): boolean {
+  // Если это строка (HTML от Tiptap)
+  if (typeof data === 'string') {
+    const cleanHtml = data.replace(/<[^>]*>/g, '').trim();
+    return cleanHtml.length > 0;
+  }
+
+  // Если это данные EditorJS
   if (!data || !Array.isArray(data.blocks) || data.blocks.length === 0) {
     return false;
   }
@@ -226,6 +249,10 @@ export function hasEditorContent(data: EditorData): boolean {
         return true; // Разделитель всегда считается контентом
       case 'link':
         return !!(block.data.link && block.data.link.trim().length > 0);
+      case 'marker':
+        return !!(block.data.text && block.data.text.trim().length > 0);
+      case 'inlineCode':
+        return !!(block.data.text && block.data.text.trim().length > 0);
       default:
         return true; // Для неизвестных типов предполагаем, что есть контент
     }

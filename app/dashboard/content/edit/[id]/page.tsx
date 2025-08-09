@@ -11,13 +11,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Save, Languages } from "lucide-react";
@@ -63,7 +56,7 @@ function EditArticlePage() {
     az: { title: "", description: "" },
     ru: { title: "", description: "" },
     en: { title: "", description: "" },
-    subCategoryId: "",
+    subCategoryIds: [] as string[],
     images: [] as string[],
   });
   const [editorData, setEditorData] = useState<{
@@ -129,9 +122,7 @@ function EditArticlePage() {
   }, []);
 
   // Отслеживаем изменения активной вкладки (только для важной логики)
-  useEffect(() => {
-    console.log("=== АКТИВНАЯ ВКЛАДКА ИЗМЕНИЛАСЬ ===", activeTab);
-  }, [activeTab]);
+  useEffect(() => {}, [activeTab]);
 
   // Принудительное обновление формы после загрузки статьи
   useEffect(() => {
@@ -164,8 +155,9 @@ function EditArticlePage() {
               title: enTranslation?.title || "",
               description: "",
             },
-            subCategoryId:
-              article.subCategories?.[0]?.id || article.subCategoryId || "",
+            subCategoryIds:
+              article.subCategories?.map((sub: any) => sub.id) ||
+              (article.subCategoryId ? [article.subCategoryId] : []),
             images: article.images?.map((img: ArticleImage) => img.url) || [],
           };
         } else {
@@ -182,8 +174,9 @@ function EditArticlePage() {
               title: article.title || "",
               description: "",
             },
-            subCategoryId:
-              article.subCategories?.[0]?.id || article.subCategoryId || "",
+            subCategoryIds:
+              article.subCategories?.map((sub: any) => sub.id) ||
+              (article.subCategoryId ? [article.subCategoryId] : []),
             images: article.images?.map((img: ArticleImage) => img.url) || [],
           };
         }
@@ -225,10 +218,6 @@ function EditArticlePage() {
               };
             }
 
-            console.log(
-              "=== ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ EDITOR ===",
-              parsedContent
-            );
             setEditorData((prev) => ({ ...prev, ru: parsedContent }));
           } catch (error) {
             console.error("Ошибка принудительного парсинга:", error);
@@ -239,11 +228,6 @@ function EditArticlePage() {
   }, [article]);
 
   const fillFormFromCombinedData = (combinedArticle: any) => {
-    console.log(
-      "=== ЗАПОЛНЯЕМ ФОРМУ ИЗ ОБЪЕДИНЕННЫХ ДАННЫХ ===",
-      combinedArticle
-    );
-
     const ruTranslation = combinedArticle.translations?.find(
       (t: any) => t.locale === "ru"
     );
@@ -257,20 +241,19 @@ function EditArticlePage() {
     const formData = {
       ru: {
         title: ruTranslation?.title || "",
-        description: "",
+        description: ruTranslation?.description || "",
       },
       az: {
         title: azTranslation?.title || "",
-        description: "",
+        description: azTranslation?.description || "",
       },
       en: {
         title: enTranslation?.title || "",
-        description: "",
+        description: enTranslation?.description || "",
       },
-      subCategoryId:
-        combinedArticle.subCategories?.[0]?.id ||
-        combinedArticle.subCategoryId ||
-        "",
+      subCategoryIds:
+        combinedArticle.subCategories?.map((sub: any) => sub.id) ||
+        (combinedArticle.subCategoryId ? [combinedArticle.subCategoryId] : []),
       images: combinedArticle.images?.map((img: ArticleImage) => img.url) || [],
     };
 
@@ -350,7 +333,7 @@ function EditArticlePage() {
 
   const fetchArticleAllLanguages = async () => {
     try {
-      // Загружаем статью для каждого языка
+      // Загружаем статью для каждого языка отдельными запросами
       const [ruResponse, azResponse, enResponse] = await Promise.all([
         getArticleById(articleId, "ru"),
         getArticleById(articleId, "az"),
@@ -358,30 +341,39 @@ function EditArticlePage() {
       ]);
 
       if (ruResponse.statusCode === 200 && ruResponse.data) {
-        const ruData = ruResponse.data;
-        const azData = azResponse.statusCode === 200 ? azResponse.data : null;
-        const enData = enResponse.statusCode === 200 ? enResponse.data : null;
+        const baseArticleData = ruResponse.data;
 
-        // Создаем объединенную структуру данных
+        // Собираем переводы из отдельных запросов
+        const translations = [];
+
+        if (ruResponse.statusCode === 200 && ruResponse.data) {
+          translations.push({
+            locale: "ru",
+            title: ruResponse.data.title || "",
+            description: ruResponse.data.description || "",
+          });
+        }
+
+        if (azResponse.statusCode === 200 && azResponse.data) {
+          translations.push({
+            locale: "az",
+            title: azResponse.data.title || "",
+            description: azResponse.data.description || "",
+          });
+        }
+
+        if (enResponse.statusCode === 200 && enResponse.data) {
+          translations.push({
+            locale: "en",
+            title: enResponse.data.title || "",
+            description: enResponse.data.description || "",
+          });
+        }
+
+        // Создаем объединенную статью с translations
         const combinedArticle = {
-          ...ruData,
-          translations: [
-            {
-              locale: "ru",
-              title: ruData.title || "",
-              description: ruData.description || "",
-            },
-            {
-              locale: "az",
-              title: azData?.title || "",
-              description: azData?.description || "",
-            },
-            {
-              locale: "en",
-              title: enData?.title || "",
-              description: enData?.description || "",
-            },
-          ],
+          ...baseArticleData,
+          translations: translations,
         };
 
         setArticle(combinedArticle);
@@ -437,10 +429,9 @@ function EditArticlePage() {
               title: enTranslation?.title || "",
               description: "",
             },
-            subCategoryId:
-              articleData.subCategories?.[0]?.id ||
-              articleData.subCategoryId ||
-              "",
+            subCategoryIds:
+              articleData.subCategories?.map((sub: any) => sub.id) ||
+              (articleData.subCategoryId ? [articleData.subCategoryId] : []),
             images:
               articleData.images?.map((img: ArticleImage) => img.url) || [],
           };
@@ -460,10 +451,9 @@ function EditArticlePage() {
               title: articleData.title || "", // Тот же title для всех языков
               description: "",
             },
-            subCategoryId:
-              articleData.subCategories?.[0]?.id ||
-              articleData.subCategoryId ||
-              "",
+            subCategoryIds:
+              articleData.subCategories?.map((sub: any) => sub.id) ||
+              (articleData.subCategoryId ? [articleData.subCategoryId] : []),
             images:
               articleData.images?.map((img: ArticleImage) => img.url) || [],
           };
@@ -545,10 +535,10 @@ function EditArticlePage() {
     if (!article) return;
 
     // Валидация формы
-    if (!formData.subCategoryId) {
+    if (formData.subCategoryIds.length === 0) {
       toast({
         title: "Ошибка",
-        description: "Выберите подкатегорию",
+        description: "Выберите хотя бы одну подкатегорию",
         variant: "destructive",
       });
       return;
@@ -573,7 +563,7 @@ function EditArticlePage() {
 
       const articleData: UpdateArticleRequest = {
         id: article.id,
-        subCategoryIds: [formData.subCategoryId],
+        subCategoryIds: formData.subCategoryIds,
         translations: {
           az: {
             title: formData.az.title || azTranslation?.title || "Без названия",
@@ -670,29 +660,50 @@ function EditArticlePage() {
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="subcategory">Подкатегория *</Label>
-              <Select
-                value={formData.subCategoryId}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, subCategoryId: value })
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Выберите подкатегорию" />
-                </SelectTrigger>
-                <SelectContent>
+              <Label>Подкатегории *</Label>
+              <div className="space-y-2">
+                <div className="text-sm text-muted-foreground">
+                  Выбрано: {formData.subCategoryIds.length}
+                </div>
+                <div className="border rounded-md p-3 max-h-48 overflow-y-auto">
                   {(subCategories || []).map((subCategory) => {
                     const ruTranslation = subCategory.translations?.find(
                       (t: Translation) => t.locale === "ru"
                     );
+                    const isSelected = formData.subCategoryIds.includes(
+                      subCategory.id
+                    );
+
                     return (
-                      <SelectItem key={subCategory.id} value={subCategory.id}>
-                        {ruTranslation?.title || "Без названия"}
-                      </SelectItem>
+                      <div
+                        key={subCategory.id}
+                        className="flex items-center space-x-2 py-1 cursor-pointer hover:bg-muted rounded px-2"
+                        onClick={() => {
+                          const newSubCategoryIds = isSelected
+                            ? formData.subCategoryIds.filter(
+                                (id) => id !== subCategory.id
+                              )
+                            : [...formData.subCategoryIds, subCategory.id];
+                          setFormData({
+                            ...formData,
+                            subCategoryIds: newSubCategoryIds,
+                          });
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => {}} // Обработка в onClick родителя
+                          className="h-4 w-4"
+                        />
+                        <span className="text-sm flex-1">
+                          {ruTranslation?.title || "Без названия"}
+                        </span>
+                      </div>
                     );
                   })}
-                </SelectContent>
-              </Select>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -712,7 +723,6 @@ function EditArticlePage() {
                 <Label htmlFor="ru-title">Заголовок (Русский) *</Label>
                 <Input
                   id="ru-title"
-                  key={`ru-title-${article?.id || "loading"}`}
                   value={formData.ru.title}
                   onChange={(e) =>
                     setFormData({
@@ -740,7 +750,6 @@ function EditArticlePage() {
                 <Label htmlFor="az-title">Заголовок (Азербайджанский)</Label>
                 <Input
                   id="az-title"
-                  key={`az-title-${article?.id || "loading"}`}
                   value={formData.az.title}
                   onChange={(e) =>
                     setFormData({
@@ -767,7 +776,6 @@ function EditArticlePage() {
                 <Label htmlFor="en-title">Заголовок (Английский)</Label>
                 <Input
                   id="en-title"
-                  key={`en-title-${article?.id || "loading"}`}
                   value={formData.en.title}
                   onChange={(e) =>
                     setFormData({

@@ -12,7 +12,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       async authorize(credentials) {
         try {
           if (!credentials?.username || !credentials?.password) {
-            console.log("Отсутствуют учетные данные")
+
             return null
           }
 
@@ -28,7 +28,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           // Проверяем логин и пароль
           if (credentials.username === authLogin && credentials.password === authPass) {
-            console.log("Успешная аутентификация для пользователя:", credentials.username)
+
             return {
               id: "1",
               name: credentials.username,
@@ -37,7 +37,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             }
           }
 
-          console.log("Неверные учетные данные")
+
           return null
         } catch (error) {
           console.error("Ошибка в authorize:", error)

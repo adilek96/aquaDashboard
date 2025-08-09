@@ -99,7 +99,6 @@ export default function CreateArticlePage() {
 
   const handleSubmit = async () => {
     // Валидация формы
-    console.log("Валидация формы. Данные:", formData);
 
     if (!formData.subCategoryId || formData.subCategoryId.trim() === "") {
       toast({
@@ -142,9 +141,7 @@ export default function CreateArticlePage() {
         // content: JSON.stringify(editorData || { blocks: [] }), // Временно убираем content
       };
 
-      console.log("Отправляем данные статьи:", articleData);
       const response = await createArticle(articleData);
-      console.log("Ответ от API:", response);
 
       if (response.statusCode === 200 || response.statusCode === 201) {
         toast({
@@ -227,7 +224,7 @@ export default function CreateArticlePage() {
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <Label htmlFor="subcategory">Подкатегория *</Label>
+              <Label>Подкатегория *</Label>
               <Select
                 value={formData.subCategoryId}
                 onValueChange={(value) =>
