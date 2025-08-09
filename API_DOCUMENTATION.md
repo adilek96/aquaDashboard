@@ -303,14 +303,20 @@ GET /articles?locale=ru&subCategoryId=subcategory_id
   "articles": [
     {
       "id": "article_id",
-      "subCategoryId": "subcategory_id",
       "title": "Виды рыб",
       "description": "О различных видах рыб",
-      "subCategory": {
-        "id": "subcategory_id",
-        "title": "Морская рыба",
-        "description": "О морской рыбе"
-      },
+      "subCategories": [
+        {
+          "id": "subcategory_id_1",
+          "title": "Морская рыба",
+          "description": "О морской рыбе"
+        },
+        {
+          "id": "subcategory_id_2",
+          "title": "Тропическая рыба",
+          "description": "О тропической рыбе"
+        }
+      ],
       "images": [
         {
           "id": "image_id",
@@ -470,6 +476,34 @@ GET /articles/article/{id}?locale=ru
 - `id` - ID статьи
 - `locale` (опционально) - язык для переводов
 
+**Ответ**:
+
+```json
+{
+  "statusCode": 200,
+  "statusMessage": "Success",
+  "article": {
+    "id": "article_id",
+    "title": "Виды рыб",
+    "description": "О различных видах рыб",
+    "subCategories": [
+      {
+        "id": "subcategory_id_1",
+        "title": "Морская рыба",
+        "description": "О морской рыбе"
+      }
+    ],
+    "images": [
+      {
+        "id": "image_id",
+        "url": "https://example.com/image.jpg",
+        "uploadedAt": "2024-01-01T00:00:00.000Z"
+      }
+    ]
+  }
+}
+```
+
 #### Создать статью
 
 ```http
@@ -481,7 +515,7 @@ Authorization: Bearer ADMIN_TOKEN
 
 ```json
 {
-  "subCategoryId": "subcategory_id",
+  "subCategoryIds": ["subcategory_id_1", "subcategory_id_2"],
   "translations": {
     "az": {
       "title": "Balıq növləri",
@@ -512,7 +546,7 @@ Authorization: Bearer ADMIN_TOKEN
 ```json
 {
   "id": "article_id",
-  "subCategoryId": "new_subcategory_id",
+  "subCategoryIds": ["new_subcategory_id_1", "new_subcategory_id_2"],
   "translations": {
     "az": {
       "title": "Yeni balıq növləri",
@@ -553,14 +587,14 @@ Authorization: Bearer ADMIN_TOKEN
 - `id` (String, Primary Key) - уникальный идентификатор
 - `translations` (TranslationSubCategory[]) - переводы подкатегории
 - `categories` (Categories[]) - связанные категории
-- `article` (Article[]) - связанные статьи
+- `articles` (Article[]) - связанные статьи (many-to-many)
 
 #### Article
 
 - `id` (String, Primary Key) - уникальный идентификатор
-- `subCategoryId` (String) - ID подкатегории
 - `translations` (TranslationArticle[]) - переводы статьи
 - `articleImages` (ArticleImages[]) - изображения статьи
+- `subCategories` (SubCategories[]) - связанные подкатегории (many-to-many)
 
 #### TranslationCategory
 
@@ -651,7 +685,7 @@ curl -X POST http://localhost:3000/articles/article \
   -H "Authorization: Bearer YOUR_ADMIN_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
-    "subCategoryId": "subcategory_id_from_step_2",
+    "subCategoryIds": ["subcategory_id_from_step_2"],
     "translations": {
       "az": {"title": "Balıq növləri", "description": "Müxtəlif balıq növləri haqqında"},
       "ru": {"title": "Виды рыб", "description": "О различных видах рыб"},
@@ -750,15 +784,6 @@ curl "http://localhost:3000/inhabitants/inhabitant/inhabitant_id?locale=ru"
 Текущая версия API: **2.0.0**
 
 Изменения в API будут документироваться в changelog и сопровождаться увеличением версии.
-
-## Поддержка
-
-Для получения поддержки:
-
-- Email: support@aquawiki.com
-- Документация: http://localhost:3000/docs
-- GitHub Issues: [ссылка на репозиторий]
-
 ### URL для работы с пользователями
 
 ```

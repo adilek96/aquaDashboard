@@ -10,6 +10,7 @@ export const metadata: Metadata = {
   title: "AquaDaddy - Панель управления",
   description: "Система управления аквариумной энциклопедией",
   generator: "v0.dev",
+  viewport: "width=device-width, initial-scale=1, maximum-scale=1",
 };
 
 export default function RootLayout({

@@ -31,10 +31,12 @@ export interface SubCategory {
 // Типы для статей
 export interface Article {
   id: string;
-  translations: Translation[];
-  subCategoryId: string; // для обратной совместимости в UI
-  subCategories: SubCategory[]; // как возвращает API
-  images: ArticleImage[];
+  title?: string; // Прямое поле для заголовка (как возвращает API)
+  description?: string; // Прямое поле для описания (как возвращает API)
+  translations?: Translation[]; // Опционально, для мультиязычности
+  subCategoryId?: string; // для обратной совместимости в UI
+  subCategories?: SubCategory[]; // как возвращает API
+  images?: ArticleImage[];
   content?: string;
 }
 

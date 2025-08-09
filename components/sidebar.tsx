@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import {
   Home,
   FileText,
@@ -16,6 +18,8 @@ import {
   FolderTree,
   LogOut,
   LayoutDashboard,
+  Menu,
+  X,
 } from "lucide-react";
 import Image from "next/image";
 import { useAuth } from "@/hooks/use-auth";
@@ -37,10 +41,9 @@ const navigation = [
     icon: FolderTree,
   },
   {
-    name: "Контент",
+    name: "Статьи",
     href: "/dashboard/content",
     icon: FileText,
-    badge: "Новое",
   },
   {
     name: "Обитатели",
@@ -54,12 +57,13 @@ const navigation = [
   },
 ];
 
-export function Sidebar() {
+// Компонент для содержимого сайдбара (используется в десктопной и мобильной версии)
+function SidebarContent({ onItemClick }: { onItemClick?: () => void }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
 
   return (
-    <div className="flex flex-col w-64 bg-card border-r border-border h-screen">
+    <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center h-16 px-6 border-b border-border">
         <div className="flex items-center gap-3">
@@ -81,6 +85,7 @@ export function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
+              onClick={onItemClick}
               className={cn(
                 "flex items-center justify-between px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200",
                 isActive
@@ -92,14 +97,6 @@ export function Sidebar() {
                 <item.icon className="w-4 h-4" />
                 {item.name}
               </div>
-              {item.badge && (
-                <Badge
-                  variant="secondary"
-                  className="text-xs px-1.5 py-0.5 h-5"
-                >
-                  {item.badge}
-                </Badge>
-              )}
             </Link>
           );
         })}
@@ -135,5 +132,36 @@ export function Sidebar() {
         </div>
       </div>
     </div>
+  );
+}
+
+export function Sidebar() {
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  return (
+    <>
+      {/* Мобильная кнопка меню */}
+      <div className="lg:hidden fixed top-4 left-4 z-50">
+        <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+          <SheetTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="bg-background/80 backdrop-blur-sm"
+            >
+              <Menu className="h-4 w-4" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="p-0 w-64">
+            <SidebarContent onItemClick={() => setMobileMenuOpen(false)} />
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      {/* Десктопный сайдбар */}
+      <div className="hidden lg:flex flex-col w-64 bg-card border-r border-border h-screen">
+        <SidebarContent />
+      </div>
+    </>
   );
 }

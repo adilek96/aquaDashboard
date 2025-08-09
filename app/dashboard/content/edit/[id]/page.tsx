@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +19,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Save, Languages } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -50,7 +49,7 @@ const Editor = dynamic(
   }
 );
 
-export default function EditArticlePage() {
+function EditArticlePage() {
   const router = useRouter();
   const params = useParams();
   const articleId = params.id as string;
@@ -67,86 +66,265 @@ export default function EditArticlePage() {
     subCategoryId: "",
     images: [] as string[],
   });
-  const [editorData, setEditorData] = useState<any>({ blocks: [] });
+  const [editorData, setEditorData] = useState<{
+    ru: any;
+    az: any;
+    en: any;
+  }>({
+    ru: { blocks: [] },
+    az: { blocks: [] },
+    en: { blocks: [] },
+  });
+  const [activeTab, setActiveTab] = useState<"ru" | "az" | "en">("ru");
   const [isClient, setIsClient] = useState(false);
   const { toast } = useToast();
+
+  // Refs для debounce timeouts
+  const editorTimeouts = useRef<{
+    ru?: NodeJS.Timeout;
+    az?: NodeJS.Timeout;
+    en?: NodeJS.Timeout;
+  }>({});
+
+  // Debounced функции для EditorJS чтобы уменьшить ререндеры
+  const debouncedEditorChange = useCallback(
+    (lang: "ru" | "az" | "en", data: any) => {
+      // Очищаем предыдущий timeout для этого языка
+      if (editorTimeouts.current[lang]) {
+        clearTimeout(editorTimeouts.current[lang]);
+      }
+
+      // Устанавливаем новый timeout
+      editorTimeouts.current[lang] = setTimeout(() => {
+        setEditorData((prev) => ({ ...prev, [lang]: data }));
+      }, 200); // 200ms debounce для быстрой печати
+    },
+    []
+  );
+
+  // Создаем отдельные debounced функции для каждого языка
+  const handleRuEditorChange = useCallback(
+    (data: any) => {
+      debouncedEditorChange("ru", data);
+    },
+    [debouncedEditorChange]
+  );
+
+  const handleAzEditorChange = useCallback(
+    (data: any) => {
+      debouncedEditorChange("az", data);
+    },
+    [debouncedEditorChange]
+  );
+
+  const handleEnEditorChange = useCallback(
+    (data: any) => {
+      debouncedEditorChange("en", data);
+    },
+    [debouncedEditorChange]
+  );
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
+  // Отслеживаем изменения активной вкладки (только для важной логики)
   useEffect(() => {
-    if (articleId) {
-      fetchArticle();
-      fetchCategories();
-      fetchSubCategories();
+    console.log("=== АКТИВНАЯ ВКЛАДКА ИЗМЕНИЛАСЬ ===", activeTab);
+  }, [activeTab]);
+
+  // Принудительное обновление формы после загрузки статьи
+  useEffect(() => {
+    if (article && article.id) {
+      // Принудительно устанавливаем данные формы еще раз
+      setTimeout(() => {
+        // Умная логика и здесь тоже
+        let timeoutFormData;
+        if (article.translations && article.translations.length > 0) {
+          const ruTranslation = article.translations.find(
+            (t: Translation) => t.locale === "ru"
+          );
+          const azTranslation = article.translations.find(
+            (t: Translation) => t.locale === "az"
+          );
+          const enTranslation = article.translations.find(
+            (t: Translation) => t.locale === "en"
+          );
+
+          timeoutFormData = {
+            ru: {
+              title: ruTranslation?.title || "",
+              description: "",
+            },
+            az: {
+              title: azTranslation?.title || "",
+              description: "",
+            },
+            en: {
+              title: enTranslation?.title || "",
+              description: "",
+            },
+            subCategoryId:
+              article.subCategories?.[0]?.id || article.subCategoryId || "",
+            images: article.images?.map((img: ArticleImage) => img.url) || [],
+          };
+        } else {
+          timeoutFormData = {
+            ru: {
+              title: article.title || "",
+              description: "",
+            },
+            az: {
+              title: article.title || "",
+              description: "",
+            },
+            en: {
+              title: article.title || "",
+              description: "",
+            },
+            subCategoryId:
+              article.subCategories?.[0]?.id || article.subCategoryId || "",
+            images: article.images?.map((img: ArticleImage) => img.url) || [],
+          };
+        }
+
+        setFormData(timeoutFormData);
+
+        // Принудительно обновляем EditorJS
+        let editorContent = "";
+        if (article.translations && article.translations.length > 0) {
+          const ruTranslation = article.translations.find(
+            (t: Translation) => t.locale === "ru"
+          );
+          editorContent = ruTranslation?.description || article.content || "";
+        } else {
+          editorContent = article.description || article.content || "";
+        }
+        if (editorContent && editorContent.trim() !== "") {
+          try {
+            // Проверяем, это JSON или обычный текст
+            let parsedContent;
+            if (
+              editorContent.startsWith("{") ||
+              editorContent.startsWith("[")
+            ) {
+              // Это JSON - парсим как обычно
+              parsedContent = parseEditorContent(editorContent);
+            } else {
+              // Это обычный текст - создаем блок параграфа
+              parsedContent = {
+                blocks: [
+                  {
+                    type: "paragraph",
+                    data: {
+                      text: editorContent,
+                    },
+                  },
+                ],
+                version: "2.28.2",
+              };
+            }
+
+            console.log(
+              "=== ПРИНУДИТЕЛЬНОЕ ОБНОВЛЕНИЕ EDITOR ===",
+              parsedContent
+            );
+            setEditorData((prev) => ({ ...prev, ru: parsedContent }));
+          } catch (error) {
+            console.error("Ошибка принудительного парсинга:", error);
+          }
+        }
+      }, 100);
     }
-  }, [articleId]);
+  }, [article]);
 
-  const fetchArticle = async () => {
-    try {
-      const response = await getArticleById(articleId, "ru");
-      if (response.statusCode === 200 && response.data) {
-        const article = response.data;
-        // Обеспечиваем обратную совместимость с UI
-        const articleWithSubCategoryId = {
-          ...article,
-          subCategoryId:
-            article.subCategories?.[0]?.id || article.subCategoryId || "",
-        };
-        setArticle(articleWithSubCategoryId);
-        fillFormData(articleWithSubCategoryId);
-      } else {
-        toast({
-          title: "Ошибка",
-          description: response.error || "Статья не найдена",
-          variant: "destructive",
-        });
-        router.push("/dashboard/content");
-      }
-    } catch (error) {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось загрузить статью",
-        variant: "destructive",
-      });
-      router.push("/dashboard/content");
-    }
-  };
-
-  const fillFormData = (article: Article) => {
-    const ruTranslation = article.translations?.find(
-      (t: Translation) => t.locale === "ru"
-    );
-    const azTranslation = article.translations?.find(
-      (t: Translation) => t.locale === "az"
-    );
-    const enTranslation = article.translations?.find(
-      (t: Translation) => t.locale === "en"
+  const fillFormFromCombinedData = (combinedArticle: any) => {
+    console.log(
+      "=== ЗАПОЛНЯЕМ ФОРМУ ИЗ ОБЪЕДИНЕННЫХ ДАННЫХ ===",
+      combinedArticle
     );
 
-    setFormData({
+    const ruTranslation = combinedArticle.translations?.find(
+      (t: any) => t.locale === "ru"
+    );
+    const azTranslation = combinedArticle.translations?.find(
+      (t: any) => t.locale === "az"
+    );
+    const enTranslation = combinedArticle.translations?.find(
+      (t: any) => t.locale === "en"
+    );
+
+    const formData = {
       ru: {
         title: ruTranslation?.title || "",
-        description: "", // Убираем поле description, так как используется EditorJS
+        description: "",
       },
       az: {
         title: azTranslation?.title || "",
-        description: "", // Убираем поле description, так как используется EditorJS
+        description: "",
       },
       en: {
         title: enTranslation?.title || "",
-        description: "", // Убираем поле description, так как используется EditorJS
+        description: "",
       },
       subCategoryId:
-        article.subCategories?.[0]?.id || article.subCategoryId || "",
-      images: article.images?.map((img: ArticleImage) => img.url) || [],
-    });
+        combinedArticle.subCategories?.[0]?.id ||
+        combinedArticle.subCategoryId ||
+        "",
+      images: combinedArticle.images?.map((img: ArticleImage) => img.url) || [],
+    };
 
-    // EditorJS контент берем из description русского перевода
-    const validatedData = parseEditorContent(ruTranslation?.description || "");
-    setEditorData(validatedData);
+    setFormData(formData);
+
+    // EditorJS для всех языков
+    const newEditorData = {
+      ru: { blocks: [] },
+      az: { blocks: [] },
+      en: { blocks: [] },
+    };
+
+    // Заполняем данные для каждого языка
+    [ruTranslation, azTranslation, enTranslation].forEach(
+      (translation, index) => {
+        const langKey = ["ru", "az", "en"][index] as "ru" | "az" | "en";
+        let editorContent =
+          translation?.description ||
+          (langKey === "ru" ? combinedArticle.content : "") ||
+          "";
+
+        if (editorContent && editorContent.trim() !== "") {
+          try {
+            let parsedContent;
+            if (
+              editorContent.startsWith("{") ||
+              editorContent.startsWith("[")
+            ) {
+              parsedContent = parseEditorContent(editorContent);
+            } else {
+              parsedContent = {
+                blocks: [{ type: "paragraph", data: { text: editorContent } }],
+                version: "2.28.2",
+              };
+            }
+            (newEditorData as any)[langKey] = parsedContent;
+          } catch (error) {
+            console.error(`Ошибка парсинга контента для ${langKey}:`, error);
+            (newEditorData as any)[langKey] = { blocks: [] };
+          }
+        }
+      }
+    );
+
+    setEditorData(newEditorData);
   };
+
+  // Простая логика загрузки как в create/page.tsx
+  useEffect(() => {
+    if (!isClient) return;
+    fetchCategories();
+    fetchSubCategories();
+    fetchArticleAllLanguages(); // Используем новую функцию
+  }, [isClient, articleId]);
 
   const fetchCategories = async () => {
     try {
@@ -167,6 +345,197 @@ export default function EditArticlePage() {
       }
     } catch (error) {
       console.error("Ошибка загрузки подкатегорий:", error);
+    }
+  };
+
+  const fetchArticleAllLanguages = async () => {
+    try {
+      // Загружаем статью для каждого языка
+      const [ruResponse, azResponse, enResponse] = await Promise.all([
+        getArticleById(articleId, "ru"),
+        getArticleById(articleId, "az"),
+        getArticleById(articleId, "en"),
+      ]);
+
+      if (ruResponse.statusCode === 200 && ruResponse.data) {
+        const ruData = ruResponse.data;
+        const azData = azResponse.statusCode === 200 ? azResponse.data : null;
+        const enData = enResponse.statusCode === 200 ? enResponse.data : null;
+
+        // Создаем объединенную структуру данных
+        const combinedArticle = {
+          ...ruData,
+          translations: [
+            {
+              locale: "ru",
+              title: ruData.title || "",
+              description: ruData.description || "",
+            },
+            {
+              locale: "az",
+              title: azData?.title || "",
+              description: azData?.description || "",
+            },
+            {
+              locale: "en",
+              title: enData?.title || "",
+              description: enData?.description || "",
+            },
+          ],
+        };
+
+        setArticle(combinedArticle);
+        fillFormFromCombinedData(combinedArticle);
+      } else {
+        throw new Error("Не удалось загрузить основную статью");
+      }
+    } catch (error) {
+      console.error("Ошибка загрузки статьи для всех языков:", error);
+      // Fallback к старому методу
+      await fetchArticleSingleLanguage();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchArticleSingleLanguage = async () => {
+    try {
+      // Попробуем получить все языки, убрав параметр locale
+      const response = await getArticleById(articleId);
+
+      if (response.statusCode === 200 && response.data) {
+        const articleData = response.data;
+
+        setArticle(articleData);
+
+        // API возвращает данные напрямую без translations
+
+        // Умная логика: используем translations если есть, иначе прямые поля
+        let formDataToSet;
+        if (articleData.translations && articleData.translations.length > 0) {
+          // Есть переводы - используем их
+          const ruTranslation = articleData.translations.find(
+            (t: Translation) => t.locale === "ru"
+          );
+          const azTranslation = articleData.translations.find(
+            (t: Translation) => t.locale === "az"
+          );
+          const enTranslation = articleData.translations.find(
+            (t: Translation) => t.locale === "en"
+          );
+
+          formDataToSet = {
+            ru: {
+              title: ruTranslation?.title || "",
+              description: "",
+            },
+            az: {
+              title: azTranslation?.title || "",
+              description: "",
+            },
+            en: {
+              title: enTranslation?.title || "",
+              description: "",
+            },
+            subCategoryId:
+              articleData.subCategories?.[0]?.id ||
+              articleData.subCategoryId ||
+              "",
+            images:
+              articleData.images?.map((img: ArticleImage) => img.url) || [],
+          };
+        } else {
+          // Нет переводов - используем прямые поля для всех языков
+
+          formDataToSet = {
+            ru: {
+              title: articleData.title || "", // Берем title напрямую
+              description: "",
+            },
+            az: {
+              title: articleData.title || "", // Тот же title для всех языков
+              description: "",
+            },
+            en: {
+              title: articleData.title || "", // Тот же title для всех языков
+              description: "",
+            },
+            subCategoryId:
+              articleData.subCategories?.[0]?.id ||
+              articleData.subCategoryId ||
+              "",
+            images:
+              articleData.images?.map((img: ArticleImage) => img.url) || [],
+          };
+        }
+
+        const newFormData = formDataToSet;
+
+        setFormData(newFormData);
+
+        // Устанавливаем данные для EditorJS
+        let editorContent = "";
+        if (articleData.translations && articleData.translations.length > 0) {
+          // Если есть переводы, берем description из русского перевода
+          const ruTranslation = articleData.translations.find(
+            (t: Translation) => t.locale === "ru"
+          );
+          editorContent =
+            ruTranslation?.description || articleData.content || "";
+        } else {
+          // Иначе используем прямое поле
+          editorContent = articleData.description || articleData.content || "";
+        }
+
+        if (editorContent && editorContent.trim() !== "") {
+          try {
+            // Проверяем, это JSON или обычный текст
+            let parsedContent;
+            if (
+              editorContent.startsWith("{") ||
+              editorContent.startsWith("[")
+            ) {
+              // Это JSON - парсим как обычно
+              parsedContent = parseEditorContent(editorContent);
+            } else {
+              // Это обычный текст - создаем блок параграфа
+              parsedContent = {
+                blocks: [
+                  {
+                    type: "paragraph",
+                    data: {
+                      text: editorContent,
+                    },
+                  },
+                ],
+                version: "2.28.2",
+              };
+            }
+
+            setEditorData((prev) => ({ ...prev, ru: parsedContent }));
+          } catch (error) {
+            console.error("Ошибка парсинга:", error);
+            setEditorData((prev) => ({ ...prev, ru: { blocks: [] } }));
+          }
+        } else {
+          setEditorData((prev) => ({ ...prev, ru: { blocks: [] } }));
+        }
+      } else {
+        toast({
+          title: "Ошибка",
+          description: response.error || "Статья не найдена",
+          variant: "destructive",
+        });
+        router.push("/dashboard/content");
+      }
+    } catch (error) {
+      console.error("Ошибка загрузки статьи:", error);
+      toast({
+        title: "Ошибка",
+        description: "Не удалось загрузить статью",
+        variant: "destructive",
+      });
+      router.push("/dashboard/content");
     } finally {
       setLoading(false);
     }
@@ -196,25 +565,30 @@ export default function EditArticlePage() {
 
     setSubmitting(true);
     try {
+      // Берем существующие переводы и обновляем только то что изменилось
+      const existingTranslations = article.translations || [];
+      const ruTranslation = existingTranslations.find((t) => t.locale === "ru");
+      const azTranslation = existingTranslations.find((t) => t.locale === "az");
+      const enTranslation = existingTranslations.find((t) => t.locale === "en");
+
       const articleData: UpdateArticleRequest = {
         id: article.id,
-        subCategoryIds: [formData.subCategoryId], // преобразуем в массив согласно API
+        subCategoryIds: [formData.subCategoryId],
         translations: {
           az: {
-            title: formData.az.title || formData.ru.title || "Без названия",
-            description: JSON.stringify(editorData || { blocks: [] }), // EditorJS контент
+            title: formData.az.title || azTranslation?.title || "Без названия",
+            description: JSON.stringify(editorData.az || { blocks: [] }),
           },
           ru: {
             title: formData.ru.title || "Без названия",
-            description: JSON.stringify(editorData || { blocks: [] }), // EditorJS контент
+            description: JSON.stringify(editorData.ru || { blocks: [] }),
           },
           en: {
-            title: formData.en.title || formData.ru.title || "Без названия",
-            description: JSON.stringify(editorData || { blocks: [] }), // EditorJS контент
+            title: formData.en.title || enTranslation?.title || "Без названия",
+            description: JSON.stringify(editorData.en || { blocks: [] }),
           },
         },
         images: formData.images,
-        // content: JSON.stringify(editorData || { blocks: [] }), // Временно убираем content
       };
 
       const response = await updateArticle(articleData);
@@ -262,21 +636,22 @@ export default function EditArticlePage() {
   );
 
   return (
-    <div className="p-8 space-y-8 max-w-6xl mx-auto">
-      <div className="flex items-center gap-4">
+    <div className="p-4 lg:p-8 space-y-6 lg:space-y-8 mx-auto max-w-6xl">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <Button
           variant="outline"
           onClick={handleCancel}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 self-start"
         >
           <ArrowLeft className="w-4 h-4" />
-          Назад к списку
+          <span className="hidden sm:inline">Назад к списку</span>
+          <span className="sm:hidden">Назад</span>
         </Button>
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">
+        <div className="min-w-0">
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
             Редактировать статью
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm lg:text-base break-words">
             {ruTranslation?.title || "Редактирование статьи"}
           </p>
         </div>
@@ -321,7 +696,11 @@ export default function EditArticlePage() {
             </div>
           </div>
 
-          <Tabs defaultValue="ru" className="w-full">
+          <Tabs
+            defaultValue="ru"
+            className="w-full"
+            onValueChange={(value) => setActiveTab(value as "ru" | "az" | "en")}
+          >
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="ru">Русский *</TabsTrigger>
               <TabsTrigger value="az">Азербайджанский</TabsTrigger>
@@ -333,6 +712,7 @@ export default function EditArticlePage() {
                 <Label htmlFor="ru-title">Заголовок (Русский) *</Label>
                 <Input
                   id="ru-title"
+                  key={`ru-title-${article?.id || "loading"}`}
                   value={formData.ru.title}
                   onChange={(e) =>
                     setFormData({
@@ -344,6 +724,15 @@ export default function EditArticlePage() {
                   required
                 />
               </div>
+              <div>
+                <Label>Содержание статьи (Русский)</Label>
+                <Editor
+                  key={`editor-ru-${article?.id || "loading"}`}
+                  data={editorData.ru}
+                  onChange={handleRuEditorChange}
+                  placeholder="Начните писать статью на русском..."
+                />
+              </div>
             </TabsContent>
 
             <TabsContent value="az" className="space-y-4">
@@ -351,6 +740,7 @@ export default function EditArticlePage() {
                 <Label htmlFor="az-title">Заголовок (Азербайджанский)</Label>
                 <Input
                   id="az-title"
+                  key={`az-title-${article?.id || "loading"}`}
                   value={formData.az.title}
                   onChange={(e) =>
                     setFormData({
@@ -361,6 +751,15 @@ export default function EditArticlePage() {
                   placeholder="Введите заголовок на азербайджанском"
                 />
               </div>
+              <div>
+                <Label>Содержание статьи (Азербайджанский)</Label>
+                <Editor
+                  key={`editor-az-${article?.id || "loading"}`}
+                  data={editorData.az}
+                  onChange={handleAzEditorChange}
+                  placeholder="Начните писать статью на азербайджанском..."
+                />
+              </div>
             </TabsContent>
 
             <TabsContent value="en" className="space-y-4">
@@ -368,6 +767,7 @@ export default function EditArticlePage() {
                 <Label htmlFor="en-title">Заголовок (Английский)</Label>
                 <Input
                   id="en-title"
+                  key={`en-title-${article?.id || "loading"}`}
                   value={formData.en.title}
                   onChange={(e) =>
                     setFormData({
@@ -378,34 +778,45 @@ export default function EditArticlePage() {
                   placeholder="Введите заголовок на английском"
                 />
               </div>
+              <div>
+                <Label>Содержание статьи (Английский)</Label>
+                <Editor
+                  key={`editor-en-${article?.id || "loading"}`}
+                  data={editorData.en}
+                  onChange={handleEnEditorChange}
+                  placeholder="Начните писать статью на английском..."
+                />
+              </div>
             </TabsContent>
           </Tabs>
-
-          <div>
-            <Label>Содержание статьи (EditorJS)</Label>
-            <Editor
-              data={editorData}
-              onChange={setEditorData}
-              placeholder="Начните писать вашу статью..."
-            />
-          </div>
         </CardContent>
       </Card>
 
-      <div className="flex items-center justify-end gap-4">
-        <Button variant="outline" onClick={handleCancel} disabled={submitting}>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3">
+        <Button
+          variant="outline"
+          onClick={handleCancel}
+          disabled={submitting}
+          className="order-2 sm:order-1"
+        >
           Отмена
         </Button>
-        <Button onClick={handleSubmit} disabled={submitting}>
+        <Button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="order-1 sm:order-2"
+        >
           {submitting ? (
             <>
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              Сохранение...
+              <span className="hidden sm:inline">Сохранение...</span>
+              <span className="sm:hidden">Сохранение...</span>
             </>
           ) : (
             <>
               <Save className="w-4 h-4 mr-2" />
-              Сохранить изменения
+              <span className="hidden sm:inline">Сохранить изменения</span>
+              <span className="sm:hidden">Сохранить</span>
             </>
           )}
         </Button>
@@ -413,3 +824,5 @@ export default function EditArticlePage() {
     </div>
   );
 }
+
+export default React.memo(EditArticlePage);

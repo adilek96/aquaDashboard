@@ -193,19 +193,22 @@ export default function CreateArticlePage() {
   }
 
   return (
-    <div className="p-8 space-y-8 max-w-6xl mx-auto">
-      <div className="flex items-center gap-4">
+    <div className="p-4 lg:p-8 space-y-6 lg:space-y-8 max-w-6xl mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <Button
           variant="outline"
           onClick={handleCancel}
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 self-start"
         >
           <ArrowLeft className="w-4 h-4" />
-          Назад к списку
+          <span className="hidden sm:inline">Назад к списку</span>
+          <span className="sm:hidden">Назад</span>
         </Button>
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Создать статью</h1>
-          <p className="text-muted-foreground">
+        <div className="min-w-0">
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
+            Создать статью
+          </h1>
+          <p className="text-muted-foreground text-sm lg:text-base">
             Создайте новую статью с поддержкой мультиязычности
           </p>
         </div>
@@ -321,20 +324,31 @@ export default function CreateArticlePage() {
         </CardContent>
       </Card>
 
-      <div className="flex items-center justify-end gap-4">
-        <Button variant="outline" onClick={handleCancel} disabled={submitting}>
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3">
+        <Button
+          variant="outline"
+          onClick={handleCancel}
+          disabled={submitting}
+          className="order-2 sm:order-1"
+        >
           Отмена
         </Button>
-        <Button onClick={handleSubmit} disabled={submitting}>
+        <Button
+          onClick={handleSubmit}
+          disabled={submitting}
+          className="order-1 sm:order-2"
+        >
           {submitting ? (
             <>
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              Создание...
+              <span className="hidden sm:inline">Создание...</span>
+              <span className="sm:hidden">Создание...</span>
             </>
           ) : (
             <>
               <Save className="w-4 h-4 mr-2" />
-              Создать статью
+              <span className="hidden sm:inline">Создать статью</span>
+              <span className="sm:hidden">Создать</span>
             </>
           )}
         </Button>

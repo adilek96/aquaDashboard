@@ -1,6 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  Suspense,
+  memo,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,42 +56,145 @@ import {
   Article,
 } from "@/types/dashboard";
 
-export default function ContentPage() {
+// Мемоизированный компонент карточки статьи для предотвращения лишних ререндеров
+const ArticleCard = memo(
+  ({
+    article,
+    subCategories,
+    onEdit,
+    onDelete,
+  }: {
+    article: Article;
+    subCategories: SubCategory[];
+    onEdit: (article: Article) => void;
+    onDelete: (id: string) => void;
+  }) => {
+    const ruTranslation = article.translations?.find(
+      (t: Translation) => t.locale === "ru"
+    );
+    const azTranslation = article.translations?.find(
+      (t: Translation) => t.locale === "az"
+    );
+    const enTranslation = article.translations?.find(
+      (t: Translation) => t.locale === "en"
+    );
+    const subCategory = subCategories.find(
+      (sc) => sc.id === article.subCategoryId
+    );
+    const subCategoryRuTranslation = subCategory?.translations.find(
+      (t: Translation) => t.locale === "ru"
+    );
+
+    const handleEdit = useCallback(() => onEdit(article), [article, onEdit]);
+    const handleDelete = useCallback(
+      () => onDelete(article.id),
+      [article.id, onDelete]
+    );
+
+    return (
+      <Card key={article.id}>
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <CardTitle className="flex items-start gap-2 mb-3 text-base lg:text-lg">
+                <FileText className="w-5 h-5 shrink-0 mt-0.5" />
+                <span className="break-words">
+                  {ruTranslation?.title || "Без названия"}
+                </span>
+              </CardTitle>
+              <div className="flex items-center gap-2">
+                {/* Индикаторы языков */}
+                <div className="flex items-center gap-1">
+                  <Badge
+                    variant={ruTranslation?.title ? "default" : "secondary"}
+                    className="text-xs px-2 py-0.5"
+                  >
+                    RU
+                  </Badge>
+                  <Badge
+                    variant={azTranslation?.title ? "default" : "secondary"}
+                    className="text-xs px-2 py-0.5"
+                  >
+                    AZ
+                  </Badge>
+                  <Badge
+                    variant={enTranslation?.title ? "default" : "secondary"}
+                    className="text-xs px-2 py-0.5"
+                  >
+                    EN
+                  </Badge>
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon" className="h-8 w-8">
+                    <MoreHorizontal className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleEdit}>
+                    <Edit className="w-4 h-4 mr-2" />
+                    Редактировать
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={handleDelete}
+                    className="text-destructive"
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" />
+                    Удалить
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-0">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 text-sm">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground shrink-0">
+                  Подкатегория:
+                </span>
+                <Badge variant="secondary" className="text-xs">
+                  {subCategoryRuTranslation?.title || "Не указана"}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground shrink-0">
+                  Изображений:
+                </span>
+                <Badge variant="outline" className="text-xs">
+                  {article.images?.length || 0}
+                </Badge>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+);
+
+ArticleCard.displayName = "ArticleCard";
+
+const ContentPageContent = memo(() => {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { toast } = useToast();
+
+  // Все useState вместе
   const [articles, setArticles] = useState<Article[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [subCategories, setSubCategories] = useState<SubCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [subCategoryFilter, setSubCategoryFilter] = useState("all");
-
   const [isClient, setIsClient] = useState(false);
-  const { toast } = useToast();
 
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  useEffect(() => {
-    fetchArticles();
-    fetchCategories();
-    fetchSubCategories();
-  }, [searchTerm, subCategoryFilter]);
-
-  // Обработка параметра refresh для принудительного обновления
-  useEffect(() => {
-    const refresh = searchParams.get("refresh");
-    if (refresh === "true") {
-      fetchArticles();
-      // Удаляем параметр из URL
-      const newUrl = new URL(window.location.href);
-      newUrl.searchParams.delete("refresh");
-      window.history.replaceState({}, "", newUrl.toString());
-    }
-  }, [searchParams]);
-
-  const fetchArticles = async () => {
+  // Все useCallback вместе
+  const fetchArticles = useCallback(async () => {
     try {
       const filters = {
         locale: "ru",
@@ -93,41 +203,24 @@ export default function ContentPage() {
       };
       const response = await getArticles(filters);
 
-      console.log("Ответ API при получении статей:", response);
       if (response.statusCode === 200 && response.data) {
-        console.log("Количество статей получено:", response.data.length);
-        console.log("Первая статья:", response.data[0]);
-        console.log(
-          "Структура первой статьи:",
-          JSON.stringify(response.data[0], null, 2)
-        );
-
         // Преобразуем данные API для совместимости с UI
-        const articlesWithSubCategoryId = response.data.map((article: any) => {
-          console.log("Преобразуем статью:", article);
-
-          const transformed = {
-            ...article,
-            // Берем первую подкатегорию для обратной совместимости с UI
-            subCategoryId:
-              article.subCategories?.[0]?.id || article.subCategoryId || "",
-            // Если нет translations, создаем их из title/description
-            translations: article.translations || [
-              {
-                locale: "ru",
-                title: article.title || "",
-                description: article.description || "",
-              },
-            ],
-          };
-
-          console.log("Результат преобразования:", transformed);
-          return transformed;
-        });
-        console.log("Все преобразованные статьи:", articlesWithSubCategoryId);
+        const articlesWithSubCategoryId = response.data.map((article: any) => ({
+          ...article,
+          // Берем первую подкатегорию для обратной совместимости с UI
+          subCategoryId:
+            article.subCategories?.[0]?.id || article.subCategoryId || "",
+          // Если нет translations, создаем их из title/description
+          translations: article.translations || [
+            {
+              locale: "ru",
+              title: article.title || "",
+              description: article.description || "",
+            },
+          ],
+        }));
         setArticles(articlesWithSubCategoryId);
       } else {
-        console.log("Ошибка API или нет данных:", response);
         throw new Error(response.error || "Ошибка загрузки статей");
       }
     } catch (error) {
@@ -139,9 +232,9 @@ export default function ContentPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [subCategoryFilter, toast]);
 
-  const fetchCategories = async () => {
+  const fetchCategories = useCallback(async () => {
     try {
       const response = await getCategories("ru");
       if (response.statusCode === 200 && response.data) {
@@ -150,9 +243,9 @@ export default function ContentPage() {
     } catch (error) {
       console.error("Ошибка загрузки категорий:", error);
     }
-  };
+  }, []);
 
-  const fetchSubCategories = async () => {
+  const fetchSubCategories = useCallback(async () => {
     try {
       const response = await getSubCategories();
       if (response.statusCode === 200 && response.data) {
@@ -161,71 +254,116 @@ export default function ContentPage() {
     } catch (error) {
       console.error("Ошибка загрузки подкатегорий:", error);
     }
-  };
+  }, []);
 
-  const handleCreateNew = () => {
+  const handleCreateNew = useCallback(() => {
     router.push("/dashboard/content/create");
-  };
+  }, [router]);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Вы уверены, что хотите удалить эту статью?")) return;
+  const handleDelete = useCallback(
+    async (id: string) => {
+      if (!confirm("Вы уверены, что хотите удалить эту статью?")) return;
 
-    try {
-      const response = await deleteArticle(id);
-      if (response.statusCode === 200) {
+      try {
+        const response = await deleteArticle(id);
+        if (response.statusCode === 200) {
+          toast({
+            title: "Успешно",
+            description: "Статья удалена",
+          });
+          fetchArticles();
+        } else {
+          throw new Error(response.error || "Ошибка удаления статьи");
+        }
+      } catch (error) {
         toast({
-          title: "Успешно",
-          description: "Статья удалена",
+          title: "Ошибка",
+          description: "Не удалось удалить статью",
+          variant: "destructive",
         });
-        fetchArticles();
-      } else {
-        throw new Error(response.error || "Ошибка удаления статьи");
       }
-    } catch (error) {
-      toast({
-        title: "Ошибка",
-        description: "Не удалось удалить статью",
-        variant: "destructive",
-      });
+    },
+    [fetchArticles, toast]
+  );
+
+  const handleEditArticle = useCallback(
+    (article: Article) => {
+      router.push(`/dashboard/content/edit/${article.id}`);
+    },
+    [router]
+  );
+
+  // Обработчики для форм
+  const handleSearchChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setSearchTerm(e.target.value);
+    },
+    []
+  );
+
+  const handleSubCategoryChange = useCallback((value: string) => {
+    setSubCategoryFilter(value);
+  }, []);
+
+  // Все useMemo вместе
+  const filteredArticles = useMemo(() => {
+    return (articles || []).filter((article) => {
+      const ruTranslation = article.translations?.find(
+        (t: Translation) => t.locale === "ru"
+      );
+
+      const matchesSearch =
+        !searchTerm ||
+        ruTranslation?.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        ruTranslation?.description
+          ?.toLowerCase()
+          .includes(searchTerm.toLowerCase());
+
+      const matchesSubCategory =
+        subCategoryFilter === "all" ||
+        article.subCategoryId === subCategoryFilter;
+
+      return matchesSearch && matchesSubCategory;
+    });
+  }, [articles, searchTerm, subCategoryFilter]);
+
+  const subCategoryOptions = useMemo(
+    () =>
+      (subCategories || []).map((subCategory) => {
+        const ruTranslation = subCategory.translations.find(
+          (t: Translation) => t.locale === "ru"
+        );
+        return {
+          id: subCategory.id,
+          title: ruTranslation?.title || "Без названия",
+        };
+      }),
+    [subCategories]
+  );
+
+  // Все useEffect в конце
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    fetchArticles();
+  }, [fetchArticles]);
+
+  useEffect(() => {
+    fetchCategories();
+    fetchSubCategories();
+  }, [fetchCategories, fetchSubCategories]);
+
+  useEffect(() => {
+    const refresh = searchParams.get("refresh");
+    if (refresh === "true") {
+      fetchArticles();
+      const newUrl = new URL(window.location.href);
+      newUrl.searchParams.delete("refresh");
+      window.history.replaceState({}, "", newUrl.toString());
     }
-  };
-
-  const handleEditArticle = (article: Article) => {
-    router.push(`/dashboard/content/edit/${article.id}`);
-  };
-
-  const filteredArticles = (articles || []).filter((article) => {
-    console.log("Фильтруем статью:", article);
-    console.log("Translations статьи:", article.translations);
-
-    const ruTranslation = article.translations?.find(
-      (t: Translation) => t.locale === "ru"
-    );
-
-    console.log("Найден русский перевод:", ruTranslation);
-
-    const matchesSearch =
-      !searchTerm ||
-      ruTranslation?.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      ruTranslation?.description
-        ?.toLowerCase()
-        .includes(searchTerm.toLowerCase());
-
-    const matchesSubCategory =
-      subCategoryFilter === "all" ||
-      article.subCategoryId === subCategoryFilter;
-
-    console.log(
-      "Поиск совпадает:",
-      matchesSearch,
-      "Категория совпадает:",
-      matchesSubCategory
-    );
-    return matchesSearch && matchesSubCategory;
-  });
-
-  console.log("Количество отфильтрованных статей:", filteredArticles.length);
-  console.log("Отфильтрованные статьи:", filteredArticles);
+  }, [searchParams, fetchArticles]);
 
   if (!isClient || loading) {
     return (
@@ -243,164 +381,65 @@ export default function ContentPage() {
   }
 
   return (
-    <div className="p-8 space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">
-            Управление контентом
+    <div className="p-4 lg:p-8 space-y-6 lg:space-y-8">
+      {/* Заголовок и кнопка */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
+            Управление статьями
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm lg:text-base">
             Создавайте и редактируйте статьи с поддержкой мультиязычности
           </p>
         </div>
-        <Button onClick={handleCreateNew}>
+        <Button onClick={handleCreateNew} className="shrink-0">
           <Plus className="w-4 h-4 mr-2" />
-          Создать статью
+          <span className="hidden sm:inline">Создать статью</span>
+          <span className="sm:hidden">Создать</span>
         </Button>
       </div>
 
-      <div className="flex items-center space-x-6">
+      {/* Поиск и фильтры */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
             placeholder="Поиск статей..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={handleSearchChange}
             className="pl-10"
           />
         </div>
-        <div className="w-64">
+        <div className="w-full sm:w-64">
           <Select
             value={subCategoryFilter}
-            onValueChange={setSubCategoryFilter}
+            onValueChange={handleSubCategoryChange}
           >
             <SelectTrigger>
               <SelectValue placeholder="Все подкатегории" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Все подкатегории</SelectItem>
-              {(subCategories || []).map((subCategory) => {
-                const ruTranslation = subCategory.translations.find(
-                  (t: Translation) => t.locale === "ru"
-                );
-                return (
-                  <SelectItem key={subCategory.id} value={subCategory.id}>
-                    {ruTranslation?.title || "Без названия"}
-                  </SelectItem>
-                );
-              })}
+              {subCategoryOptions.map((option) => (
+                <SelectItem key={option.id} value={option.id}>
+                  {option.title}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
       </div>
 
       <div className="grid gap-4">
-        {filteredArticles.map((article) => {
-          const ruTranslation = article.translations?.find(
-            (t: Translation) => t.locale === "ru"
-          );
-          const azTranslation = article.translations?.find(
-            (t: Translation) => t.locale === "az"
-          );
-          const enTranslation = article.translations?.find(
-            (t: Translation) => t.locale === "en"
-          );
-          const subCategory = (subCategories || []).find(
-            (sc) => sc.id === article.subCategoryId
-          );
-          const subCategoryRuTranslation = subCategory?.translations.find(
-            (t: Translation) => t.locale === "ru"
-          );
-
-          return (
-            <Card key={article.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="flex items-center gap-2">
-                      <FileText className="w-5 h-5" />
-                      {ruTranslation?.title || "Без названия"}
-                    </CardTitle>
-                    <CardDescription>
-                      {ruTranslation?.description || "Без описания"}
-                    </CardDescription>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant="outline"
-                      className="flex items-center gap-1"
-                    >
-                      <Languages className="w-3 h-3" />
-                      {article.translations?.length || 0}/3
-                    </Badge>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="icon">
-                          <MoreHorizontal className="w-4 h-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          onClick={() => handleEditArticle(article)}
-                        >
-                          <Edit className="w-4 h-4 mr-2" />
-                          Редактировать
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => handleDelete(article.id)}
-                          className="text-destructive"
-                        >
-                          <Trash2 className="w-4 h-4 mr-2" />
-                          Удалить
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                  <div>
-                    <h4 className="font-semibold mb-1">Русский</h4>
-                    <p className="text-muted-foreground">
-                      {ruTranslation?.title || "Не переведено"}
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-1">Азербайджанский</h4>
-                    <p className="text-muted-foreground">
-                      {azTranslation?.title || "Не переведено"}
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold mb-1">Английский</h4>
-                    <p className="text-muted-foreground">
-                      {enTranslation?.title || "Не переведено"}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-4 pt-4 border-t">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Подкатегория:</span>
-                    <Badge variant="secondary">
-                      {subCategoryRuTranslation?.title || "Не указана"}
-                    </Badge>
-                  </div>
-                  {(article.images?.length || 0) > 0 && (
-                    <div className="flex items-center justify-between text-sm mt-2">
-                      <span className="text-muted-foreground">
-                        Изображения:
-                      </span>
-                      <Badge variant="outline">
-                        {article.images?.length || 0}
-                      </Badge>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+        {filteredArticles.map((article) => (
+          <ArticleCard
+            key={article.id}
+            article={article}
+            subCategories={subCategories}
+            onEdit={handleEditArticle}
+            onDelete={handleDelete}
+          />
+        ))}
       </div>
 
       {filteredArticles.length === 0 && (
@@ -425,5 +464,15 @@ export default function ContentPage() {
         </Card>
       )}
     </div>
+  );
+});
+
+ContentPageContent.displayName = "ContentPageContent";
+
+export default function ContentPage() {
+  return (
+    <Suspense fallback={<div>Загрузка...</div>}>
+      <ContentPageContent />
+    </Suspense>
   );
 }

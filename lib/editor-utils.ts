@@ -93,6 +93,70 @@ export function validateEditorData(data: any): EditorData {
           },
           id: block.id
         };
+
+      case 'image':
+        return {
+          type: 'image',
+          data: {
+            file: block.data.file || {},
+            caption: String(block.data.caption || ''),
+            withBorder: Boolean(block.data.withBorder),
+            withBackground: Boolean(block.data.withBackground),
+            stretched: Boolean(block.data.stretched)
+          },
+          id: block.id
+        };
+
+      case 'simpleImage':
+        return {
+          type: 'simpleImage',
+          data: {
+            url: String(block.data.url || ''),
+            caption: String(block.data.caption || '')
+          },
+          id: block.id
+        };
+
+      case 'embed':
+        return {
+          type: 'embed',
+          data: {
+            service: String(block.data.service || ''),
+            source: String(block.data.source || ''),
+            embed: String(block.data.embed || ''),
+            width: Number(block.data.width) || 580,
+            height: Number(block.data.height) || 320,
+            caption: String(block.data.caption || '')
+          },
+          id: block.id
+        };
+
+      case 'warning':
+        return {
+          type: 'warning',
+          data: {
+            title: String(block.data.title || ''),
+            message: String(block.data.message || '')
+          },
+          id: block.id
+        };
+
+      case 'delimiter':
+        return {
+          type: 'delimiter',
+          data: {},
+          id: block.id
+        };
+
+      case 'link':
+        return {
+          type: 'link',
+          data: {
+            link: String(block.data.link || ''),
+            meta: block.data.meta || {}
+          },
+          id: block.id
+        };
       
       default:
         // Для неизвестных типов блоков возвращаем как есть, но с валидацией
@@ -149,6 +213,19 @@ export function hasEditorContent(data: EditorData): boolean {
                block.data.content.some((row: string[]) => 
                  Array.isArray(row) && row.some(cell => cell.trim().length > 0)
                );
+      case 'image':
+        return !!(block.data.file && (block.data.file.url || block.data.file.path));
+      case 'simpleImage':
+        return !!(block.data.url && block.data.url.trim().length > 0);
+      case 'embed':
+        return !!(block.data.source && block.data.source.trim().length > 0);
+      case 'warning':
+        return (block.data.title && block.data.title.trim().length > 0) ||
+               (block.data.message && block.data.message.trim().length > 0);
+      case 'delimiter':
+        return true; // Разделитель всегда считается контентом
+      case 'link':
+        return !!(block.data.link && block.data.link.trim().length > 0);
       default:
         return true; // Для неизвестных типов предполагаем, что есть контент
     }
