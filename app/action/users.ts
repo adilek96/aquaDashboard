@@ -20,7 +20,6 @@ export const getUsers = async (page: number, limit: number) => {
         // Проверяем статус ответа
         if (!response.ok) {
             const errorText = await response.text();
-            console.error('API Error:', response.status, errorText);
             throw new Error(`API вернул статус ${response.status}: ${errorText}`);
         }
 
@@ -28,7 +27,6 @@ export const getUsers = async (page: number, limit: number) => {
         const contentType = response.headers.get('content-type');
         if (!contentType || !contentType.includes('application/json')) {
             const text = await response.text();
-            console.error('Неверный Content-Type:', contentType, 'Response:', text);
             throw new Error('API вернул не JSON ответ');
         }
 

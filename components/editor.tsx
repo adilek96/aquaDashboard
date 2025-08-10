@@ -187,6 +187,9 @@ export function Editor({
       Image.configure({
         inline: false,
         allowBase64: true,
+        HTMLAttributes: {
+          class: "cursor-pointer hover:opacity-80 transition-opacity",
+        },
       }),
       Table.configure({
         resizable: true,
@@ -212,6 +215,17 @@ export function Editor({
         class:
           "prose prose-sm max-w-none focus:outline-none min-h-[200px] p-4 dark:prose-invert",
         placeholder: placeholder,
+      },
+      handleClick: (view, pos, event) => {
+        const { state } = view;
+        const node = state.doc.nodeAt(pos);
+
+        if (node && node.type.name === "image") {
+          handleImageEdit();
+          return true;
+        }
+
+        return false;
       },
     },
     onUpdate: ({ editor }) => {
@@ -275,32 +289,99 @@ export function Editor({
   );
 
   const handleImage = useCallback(() => {
-    // Создаем input элемент для загрузки файла
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = "image/*";
+    // Запрашиваем URL изображения
+    const url = window.prompt("URL изображения:");
+    if (url) {
+      // Запрашиваем alt-текст (опционально)
+      const alt = window.prompt("Alt-текст изображения (опционально):");
 
-    input.onchange = (event) => {
-      const file = (event.target as HTMLInputElement).files?.[0];
-      if (file) {
-        // Конвертируем в base64 для сохранения
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const base64 = e.target?.result as string;
-          editor?.chain().focus().setImage({ src: base64 }).run();
-        };
-        reader.readAsDataURL(file);
-      } else {
-        // Fallback - запрос URL
-        const url = window.prompt("URL изображения:");
-        if (url) {
-          editor?.chain().focus().setImage({ src: url }).run();
-        }
+      // Запрашиваем размеры (опционально)
+      const width = window.prompt(
+        "Ширина изображения в пикселях (опционально):"
+      );
+      const height = window.prompt(
+        "Высота изображения в пикселях (опционально):"
+      );
+
+      const imageAttributes: any = { src: url };
+      if (alt) {
+        imageAttributes.alt = alt;
       }
-    };
+      if (width) {
+        imageAttributes.width = width;
+      }
+      if (height) {
+        imageAttributes.height = height;
+      }
 
-    input.click();
+      editor?.chain().focus().setImage(imageAttributes).run();
+    }
   }, [editor]);
+
+  const handleImageEdit = useCallback(() => {
+    const { src, alt, width, height } = editor?.getAttributes("image") || {};
+    const newUrl = window.prompt("URL изображения:", src);
+    if (newUrl !== null) {
+      const newAlt = window.prompt(
+        "Alt-текст изображения (опционально):",
+        alt || ""
+      );
+      const newWidth = window.prompt(
+        "Ширина изображения в пикселях (опционально):",
+        width || ""
+      );
+      const newHeight = window.prompt(
+        "Высота изображения в пикселях (опционально):",
+        height || ""
+      );
+
+      const imageAttributes: any = { src: newUrl };
+      if (newAlt) {
+        imageAttributes.alt = newAlt;
+      }
+      if (newWidth) {
+        imageAttributes.width = newWidth;
+      }
+      if (newHeight) {
+        imageAttributes.height = newHeight;
+      }
+
+      editor?.chain().focus().setImage(imageAttributes).run();
+    }
+  }, [editor]);
+
+  const handleImageResize = useCallback(
+    (size: "small" | "medium" | "large" | "full") => {
+      const { src, alt } = editor?.getAttributes("image") || {};
+      if (!src) return;
+
+      let width: string;
+      switch (size) {
+        case "small":
+          width = "300";
+          break;
+        case "medium":
+          width = "500";
+          break;
+        case "large":
+          width = "800";
+          break;
+        case "full":
+          width = "100%";
+          break;
+        default:
+          width = "500";
+      }
+
+      const imageAttributes: any = { src, width };
+      if (alt) {
+        imageAttributes.alt = alt;
+      }
+
+      editor?.chain().focus().setImage(imageAttributes).run();
+    },
+    [editor]
+  );
 
   const handleLink = useCallback(() => {
     const previousUrl = editor?.getAttributes("link").href;
@@ -519,6 +600,42 @@ export function Editor({
           >
             <ImageIcon className="h-4 w-4" />
           </Button>
+          {editor.isActive("image") && (
+            <>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleImageResize("small")}
+                title="Маленький размер (300px)"
+              >
+                S
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleImageResize("medium")}
+                title="Средний размер (500px)"
+              >
+                M
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleImageResize("large")}
+                title="Большой размер (800px)"
+              >
+                L
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleImageResize("full")}
+                title="Полная ширина (100%)"
+              >
+                F
+              </Button>
+            </>
+          )}
           <Button variant="ghost" size="sm" onClick={handleLink} title="Ссылка">
             <LinkIcon className="h-4 w-4" />
           </Button>

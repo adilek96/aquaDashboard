@@ -353,7 +353,7 @@ const ContentPageContent = memo(() => {
         setCategories(response.data);
       }
     } catch (error) {
-      console.error("Ошибка загрузки категорий:", error);
+      // Ошибка загрузки категорий
     }
   }, []);
 
@@ -364,7 +364,7 @@ const ContentPageContent = memo(() => {
         setSubCategories(response.data);
       }
     } catch (error) {
-      console.error("Ошибка загрузки подкатегорий:", error);
+      // Ошибка загрузки подкатегорий
     }
   }, []);
 

@@ -46,8 +46,7 @@ export default function SignIn() {
         setError("Неизвестная ошибка при входе");
       }
     } catch (error) {
-      console.error("Ошибка входа:", error);
-      setError("Ошибка подключения к серверу");
+      setError("Неверные учетные данные");
     } finally {
       setLoading(false);
     }

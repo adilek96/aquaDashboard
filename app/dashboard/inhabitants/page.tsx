@@ -39,6 +39,7 @@ import {
   Image,
   Link,
 } from "lucide-react";
+import { ImageUpload } from "@/components/image-upload";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -67,12 +68,14 @@ export default function InhabitantsPage() {
     null
   );
   const [formData, setFormData] = useState({
-    az: { title: "", description: "" },
-    ru: { title: "", description: "" },
-    en: { title: "", description: "" },
-    type: AquariumType.FRESHWATER,
+    az: { title: "" },
+    ru: { title: "" },
+    en: { title: "" },
+    type: [AquariumType.FRESHWATER] as AquariumType[],
     subtype: Subtype.FISHS,
     images: [] as string[],
+    imageUrl: "", // Добавляем поле для ручного ввода URL
+    articleUrl: "",
   });
   const { toast } = useToast();
 
@@ -83,6 +86,7 @@ export default function InhabitantsPage() {
   const fetchInhabitants = async () => {
     try {
       const response = await getInhabitants();
+
       if (response.statusCode === 200 && response.data) {
         setInhabitants(response.data);
       } else {
@@ -102,14 +106,15 @@ export default function InhabitantsPage() {
   const handleCreate = async () => {
     try {
       const inhabitantData: CreateInhabitantRequest = {
-        type: formData.type,
+        type: formData.type, // Уже массив
         subtype: formData.subtype,
         translations: {
           az: formData.az,
           ru: formData.ru,
           en: formData.en,
         },
-        images: formData.images,
+        imageUrl: formData.images.length > 0 ? formData.images[0] : undefined, // Берем первое изображение
+        articleUrl: formData.articleUrl || undefined,
       };
       const response = await createInhabitant(inhabitantData);
       if (response.statusCode === 200) {
@@ -145,7 +150,10 @@ export default function InhabitantsPage() {
           ru: formData.ru,
           en: formData.en,
         },
-        images: formData.images,
+        imageUrl:
+          formData.imageUrl ||
+          (formData.images.length > 0 ? formData.images[0] : undefined), // Приоритет imageUrl, затем первое изображение
+        articleUrl: formData.articleUrl || undefined,
       };
       const response = await updateInhabitant(inhabitantData);
       if (response.statusCode === 200) {
@@ -195,55 +203,61 @@ export default function InhabitantsPage() {
     setEditingInhabitant(inhabitant);
 
     // Заполняем форму данными обитателя
-    const ruTranslation = inhabitant.translations.find(
+    const ruTranslation = inhabitant.translations?.find(
       (t: Translation) => t.locale === "ru"
     );
-    const azTranslation = inhabitant.translations.find(
+    const azTranslation = inhabitant.translations?.find(
       (t: Translation) => t.locale === "az"
     );
-    const enTranslation = inhabitant.translations.find(
+    const enTranslation = inhabitant.translations?.find(
       (t: Translation) => t.locale === "en"
     );
 
     setFormData({
       ru: {
-        title: ruTranslation?.title || "",
-        description: ruTranslation?.description || "",
+        title: ruTranslation?.title || inhabitant.title || "",
       },
       az: {
         title: azTranslation?.title || "",
-        description: azTranslation?.description || "",
       },
       en: {
         title: enTranslation?.title || "",
-        description: enTranslation?.description || "",
       },
-      type: inhabitant.type,
+      type: Array.isArray(inhabitant.type)
+        ? inhabitant.type
+        : [inhabitant.type],
       subtype: inhabitant.subtype,
-      images: inhabitant.images,
+      images: inhabitant.imageUrl
+        ? [inhabitant.imageUrl]
+        : inhabitant.images || [],
+      imageUrl: inhabitant.imageUrl || "", // Устанавливаем imageUrl
+      articleUrl: inhabitant.articleUrl || "",
     });
     setIsEditDialogOpen(true);
   };
 
   const resetForm = () => {
     setFormData({
-      az: { title: "", description: "" },
-      ru: { title: "", description: "" },
-      en: { title: "", description: "" },
-      type: AquariumType.FRESHWATER,
+      az: { title: "" },
+      ru: { title: "" },
+      en: { title: "" },
+      type: [AquariumType.FRESHWATER],
       subtype: Subtype.FISHS,
       images: [],
+      imageUrl: "", // Сбрасываем imageUrl
+      articleUrl: "",
     });
     setEditingInhabitant(null);
   };
 
   const filteredInhabitants = (inhabitants || []).filter((inhabitant) => {
-    const ruTranslation = inhabitant.translations.find(
-      (t: Translation) => t.locale === "ru"
-    );
-    return ruTranslation?.title
-      .toLowerCase()
-      .includes(searchTerm.toLowerCase());
+    // Используем прямое поле title, если translations нет
+    const title =
+      inhabitant.title ||
+      inhabitant.translations?.find((t: Translation) => t.locale === "ru")
+        ?.title ||
+      "";
+    return title.toLowerCase().includes(searchTerm.toLowerCase());
   });
 
   const availableTypes = Object.values(AquariumType);
@@ -291,9 +305,9 @@ export default function InhabitantsPage() {
                 <div>
                   <Label>Тип аквариума</Label>
                   <Select
-                    value={formData.type}
+                    value={formData.type[0] || ""}
                     onValueChange={(value: AquariumType) =>
-                      setFormData({ ...formData, type: value })
+                      setFormData({ ...formData, type: [value] })
                     }
                   >
                     <SelectTrigger>
@@ -345,21 +359,68 @@ export default function InhabitantsPage() {
                 </div>
               </div>
 
+              <ImageUpload
+                images={formData.images}
+                onImagesChange={(images) =>
+                  setFormData({
+                    ...formData,
+                    images: images,
+                    // Автоматически заполняем imageUrl первым изображением, если поле пустое
+                    imageUrl:
+                      formData.imageUrl || (images.length > 0 ? images[0] : ""),
+                  })
+                }
+                maxImages={5}
+              />
+
               <div>
-                <Label htmlFor="images">URL изображений (через запятую)</Label>
+                <Label htmlFor="imageUrl">URL изображения</Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="imageUrl"
+                    value={formData.imageUrl}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        imageUrl: e.target.value,
+                      })
+                    }
+                    placeholder="https://example.com/image.jpg"
+                  />
+                  {formData.images.length > 0 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        setFormData({
+                          ...formData,
+                          imageUrl: formData.images[0],
+                        })
+                      }
+                      title="Использовать первое загруженное изображение"
+                    >
+                      Авто
+                    </Button>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Введите URL изображения или используйте загруженные
+                  изображения выше
+                </p>
+              </div>
+
+              <div>
+                <Label htmlFor="articleUrl">Ссылка на статью</Label>
                 <Input
-                  id="images"
-                  value={formData.images.join(", ")}
+                  id="articleUrl"
+                  value={formData.articleUrl}
                   onChange={(e) =>
                     setFormData({
                       ...formData,
-                      images: e.target.value
-                        .split(",")
-                        .map((url) => url.trim())
-                        .filter((url) => url),
+                      articleUrl: e.target.value,
                     })
                   }
-                  placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
+                  placeholder="https://example.com/article"
                 />
               </div>
 
@@ -381,7 +442,6 @@ export default function InhabitantsPage() {
                           ...formData,
                           ru: {
                             title: e.target.value,
-                            description: formData.ru.description,
                           },
                         })
                       }
@@ -401,7 +461,6 @@ export default function InhabitantsPage() {
                           ...formData,
                           az: {
                             title: e.target.value,
-                            description: formData.az.description,
                           },
                         })
                       }
@@ -421,7 +480,6 @@ export default function InhabitantsPage() {
                           ...formData,
                           en: {
                             title: e.target.value,
-                            description: formData.en.description,
                           },
                         })
                       }
@@ -480,13 +538,19 @@ export default function InhabitantsPage() {
 
       <div className="grid gap-4">
         {filteredInhabitants.map((inhabitant) => {
-          const ruTranslation = inhabitant.translations.find(
+          // Используем прямое поле title или переводы
+          const title =
+            inhabitant.title ||
+            inhabitant.translations?.find((t: Translation) => t.locale === "ru")
+              ?.title ||
+            "Без названия";
+          const ruTranslation = inhabitant.translations?.find(
             (t: Translation) => t.locale === "ru"
           );
-          const azTranslation = inhabitant.translations.find(
+          const azTranslation = inhabitant.translations?.find(
             (t: Translation) => t.locale === "az"
           );
-          const enTranslation = inhabitant.translations.find(
+          const enTranslation = inhabitant.translations?.find(
             (t: Translation) => t.locale === "en"
           );
 
@@ -497,10 +561,14 @@ export default function InhabitantsPage() {
                   <div className="flex-1">
                     <CardTitle className="flex items-center gap-2">
                       <Fish className="w-5 h-5" />
-                      {ruTranslation?.title || "Без названия"}
+                      {title}
                     </CardTitle>
                     <CardDescription>
-                      Тип: {inhabitant.type} • Подтип: {inhabitant.subtype}
+                      Тип:{" "}
+                      {Array.isArray(inhabitant.type)
+                        ? inhabitant.type.join(", ")
+                        : inhabitant.type}{" "}
+                      • Подтип: {inhabitant.subtype}
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
@@ -509,7 +577,10 @@ export default function InhabitantsPage() {
                       className="flex items-center gap-1"
                     >
                       <Languages className="w-3 h-3" />
-                      {inhabitant.translations.length}/3
+                      {inhabitant.translations
+                        ? inhabitant.translations.length
+                        : 1}
+                      /3
                     </Badge>
                     <Button
                       variant="outline"
@@ -536,10 +607,11 @@ export default function InhabitantsPage() {
                     </h4>
                     <div className="flex items-center gap-1 flex-wrap">
                       {(() => {
-                        // Проверяем наличие переводов
+                        // Проверяем наличие переводов или прямого title
                         const hasRuTranslation =
-                          ruTranslation?.title &&
-                          ruTranslation.title.trim() !== "";
+                          (ruTranslation?.title &&
+                            ruTranslation.title.trim() !== "") ||
+                          (inhabitant.title && inhabitant.title.trim() !== "");
                         const hasAzTranslation =
                           azTranslation?.title &&
                           azTranslation.title.trim() !== "";
@@ -609,7 +681,9 @@ export default function InhabitantsPage() {
                     <div>
                       <h5 className="font-medium mb-1">Русский</h5>
                       <p className="text-muted-foreground text-xs">
-                        {ruTranslation?.title || "Не переведено"}
+                        {ruTranslation?.title ||
+                          inhabitant.title ||
+                          "Не переведено"}
                       </p>
                     </div>
                     <div>
@@ -632,7 +706,9 @@ export default function InhabitantsPage() {
                       Тип аквариума:
                     </span>
                     <Badge variant="secondary" className="text-xs">
-                      {inhabitant.type}
+                      {Array.isArray(inhabitant.type)
+                        ? inhabitant.type.join(", ")
+                        : inhabitant.type}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between text-sm mt-2">
@@ -695,9 +771,9 @@ export default function InhabitantsPage() {
               <div>
                 <Label>Тип аквариума</Label>
                 <Select
-                  value={formData.type}
+                  value={formData.type[0] || ""}
                   onValueChange={(value: AquariumType) =>
-                    setFormData({ ...formData, type: value })
+                    setFormData({ ...formData, type: [value] })
                   }
                 >
                   <SelectTrigger>
@@ -747,23 +823,68 @@ export default function InhabitantsPage() {
               </div>
             </div>
 
+            <ImageUpload
+              images={formData.images}
+              onImagesChange={(images) =>
+                setFormData({
+                  ...formData,
+                  images: images,
+                  // Автоматически заполняем imageUrl первым изображением, если поле пустое
+                  imageUrl:
+                    formData.imageUrl || (images.length > 0 ? images[0] : ""),
+                })
+              }
+              maxImages={5}
+            />
+
             <div>
-              <Label htmlFor="edit-images">
-                URL изображений (через запятую)
-              </Label>
+              <Label htmlFor="edit-imageUrl">URL изображения</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="edit-imageUrl"
+                  value={formData.imageUrl}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      imageUrl: e.target.value,
+                    })
+                  }
+                  placeholder="https://example.com/image.jpg"
+                />
+                {formData.images.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() =>
+                      setFormData({
+                        ...formData,
+                        imageUrl: formData.images[0],
+                      })
+                    }
+                    title="Использовать первое загруженное изображение"
+                  >
+                    Авто
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Введите URL изображения или используйте загруженные изображения
+                выше
+              </p>
+            </div>
+
+            <div>
+              <Label htmlFor="edit-articleUrl">Ссылка на статью</Label>
               <Input
-                id="edit-images"
-                value={formData.images.join(", ")}
+                id="edit-articleUrl"
+                value={formData.articleUrl}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
-                    images: e.target.value
-                      .split(",")
-                      .map((url) => url.trim())
-                      .filter((url) => url),
+                    articleUrl: e.target.value,
                   })
                 }
-                placeholder="https://example.com/image1.jpg, https://example.com/image2.jpg"
+                placeholder="https://example.com/article"
               />
             </div>
 
@@ -785,7 +906,6 @@ export default function InhabitantsPage() {
                         ...formData,
                         ru: {
                           title: e.target.value,
-                          description: formData.ru.description,
                         },
                       })
                     }
@@ -807,7 +927,6 @@ export default function InhabitantsPage() {
                         ...formData,
                         az: {
                           title: e.target.value,
-                          description: formData.az.description,
                         },
                       })
                     }
@@ -827,7 +946,6 @@ export default function InhabitantsPage() {
                         ...formData,
                         en: {
                           title: e.target.value,
-                          description: formData.en.description,
                         },
                       })
                     }

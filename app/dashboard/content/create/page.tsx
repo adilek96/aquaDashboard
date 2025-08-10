@@ -23,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Save, Languages } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ImageUpload } from "@/components/image-upload";
 import { createArticle } from "@/app/action/articles";
 import { getCategories } from "@/app/action/categories";
 import { getSubCategories } from "@/app/action/subcategories";
@@ -80,7 +81,7 @@ export default function CreateArticlePage() {
         setCategories(response.data);
       }
     } catch (error) {
-      console.error("Ошибка загрузки категорий:", error);
+      // Ошибка загрузки категорий
     }
   };
 
@@ -91,7 +92,7 @@ export default function CreateArticlePage() {
         setSubCategories(response.data);
       }
     } catch (error) {
-      console.error("Ошибка загрузки подкатегорий:", error);
+      // Ошибка загрузки подкатегорий
     } finally {
       setLoading(false);
     }
@@ -143,26 +144,19 @@ export default function CreateArticlePage() {
 
       const response = await createArticle(articleData);
 
-      if (response.statusCode === 200 || response.statusCode === 201) {
+      if (response.statusCode === 200) {
         toast({
           title: "Успешно",
           description: "Статья создана",
         });
-        router.push("/dashboard/content?refresh=true");
+        router.push("/dashboard/content");
       } else {
-        console.error("Ошибка создания статьи:", response);
-        toast({
-          title: "Ошибка",
-          description: response.error || "Ошибка создания статьи",
-          variant: "destructive",
-        });
+        throw new Error(response.error || "Ошибка создания статьи");
       }
     } catch (error) {
-      console.error("Критическая ошибка создания статьи:", error);
       toast({
         title: "Ошибка",
-        description:
-          error instanceof Error ? error.message : "Не удалось создать статью",
+        description: "Не удалось создать статью",
         variant: "destructive",
       });
     } finally {
@@ -249,6 +243,17 @@ export default function CreateArticlePage() {
               </Select>
             </div>
           </div>
+
+          <ImageUpload
+            images={formData.images}
+            onImagesChange={(images) =>
+              setFormData({
+                ...formData,
+                images: images,
+              })
+            }
+            maxImages={10}
+          />
 
           <Tabs defaultValue="ru" className="w-full">
             <TabsList className="grid w-full grid-cols-3">

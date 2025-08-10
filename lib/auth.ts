@@ -22,8 +22,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           // Проверяем, что переменные окружения установлены
           if (!authLogin || !authPass) {
-            console.error("Конфигурация аутентификации не настроена")
-            return null
+            throw new Error("Конфигурация аутентификации не настроена");
           }
 
           // Проверяем логин и пароль
@@ -40,8 +39,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
           return null
         } catch (error) {
-          console.error("Ошибка в authorize:", error)
-          return null
+          return null;
         }
       }
     })

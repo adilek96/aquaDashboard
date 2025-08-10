@@ -55,11 +55,6 @@ const navigation = [
     href: "/dashboard/users",
     icon: Users,
   },
-  {
-    name: "Очистка данных",
-    href: "/dashboard/cleanup",
-    icon: Zap,
-  },
 ];
 
 // Компонент для содержимого сайдбара (используется в десктопной и мобильной версии)

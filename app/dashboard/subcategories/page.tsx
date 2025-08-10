@@ -100,7 +100,7 @@ export default function SubCategoriesPage() {
 
       setCategories(response.data);
     } catch (error) {
-      console.error("Ошибка загрузки категорий:", error);
+      // Ошибка загрузки категорий
     }
   };
 

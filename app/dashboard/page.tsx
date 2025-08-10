@@ -71,12 +71,7 @@ export default function Dashboard() {
 
         setErrors(errorMessages);
       } catch (error) {
-        console.error("Ошибка загрузки данных:", error);
-        setErrors([
-          `Общая ошибка: ${
-            error instanceof Error ? error.message : "Неизвестная ошибка"
-          }`,
-        ]);
+        setLoading(false);
       } finally {
         setLoading(false);
       }

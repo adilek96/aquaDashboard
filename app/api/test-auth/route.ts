@@ -12,10 +12,9 @@ export async function GET() {
       timestamp: new Date().toISOString()
     })
   } catch (error) {
-    console.error('Ошибка в тестовом API:', error)
     return NextResponse.json(
-      { error: 'Ошибка аутентификации', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: "Internal server error" },
       { status: 500 }
-    )
+    );
   }
 }

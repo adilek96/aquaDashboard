@@ -198,7 +198,6 @@ export function parseEditorContent(content: string): EditorData {
     const parsed = JSON.parse(content || '{}');
     return validateEditorData(parsed);
   } catch (error) {
-    console.error('Ошибка парсинга данных EditorJS:', error);
     return { blocks: [] };
   }
 }

@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Save, Languages } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ImageUpload } from "@/components/image-upload";
 import { getArticleById, updateArticle } from "@/app/action/articles";
 import { getCategories } from "@/app/action/categories";
 import { getSubCategories } from "@/app/action/subcategories";
@@ -220,7 +221,7 @@ function EditArticlePage() {
 
             setEditorData((prev) => ({ ...prev, ru: parsedContent }));
           } catch (error) {
-            console.error("Ошибка принудительного парсинга:", error);
+            // Ошибка принудительного парсинга:
           }
         }
       }, 100);
@@ -291,8 +292,7 @@ function EditArticlePage() {
             }
             (newEditorData as any)[langKey] = parsedContent;
           } catch (error) {
-            console.error(`Ошибка парсинга контента для ${langKey}:`, error);
-            (newEditorData as any)[langKey] = { blocks: [] };
+            // Ошибка парсинга контента для langKey:
           }
         }
       }
@@ -316,7 +316,7 @@ function EditArticlePage() {
         setCategories(response.data);
       }
     } catch (error) {
-      console.error("Ошибка загрузки категорий:", error);
+      // Ошибка загрузки категорий
     }
   };
 
@@ -327,7 +327,7 @@ function EditArticlePage() {
         setSubCategories(response.data);
       }
     } catch (error) {
-      console.error("Ошибка загрузки подкатегорий:", error);
+      // Ошибка загрузки подкатегорий
     }
   };
 
@@ -382,7 +382,7 @@ function EditArticlePage() {
         throw new Error("Не удалось загрузить основную статью");
       }
     } catch (error) {
-      console.error("Ошибка загрузки статьи для всех языков:", error);
+      // Ошибка загрузки статьи для всех языков:
       // Fallback к старому методу
       await fetchArticleSingleLanguage();
     } finally {
@@ -504,7 +504,7 @@ function EditArticlePage() {
 
             setEditorData((prev) => ({ ...prev, ru: parsedContent }));
           } catch (error) {
-            console.error("Ошибка парсинга:", error);
+            // Ошибка парсинга:
             setEditorData((prev) => ({ ...prev, ru: { blocks: [] } }));
           }
         } else {
@@ -519,7 +519,7 @@ function EditArticlePage() {
         router.push("/dashboard/content");
       }
     } catch (error) {
-      console.error("Ошибка загрузки статьи:", error);
+      // Ошибка загрузки статьи:
       toast({
         title: "Ошибка",
         description: "Не удалось загрузить статью",
@@ -706,6 +706,17 @@ function EditArticlePage() {
               </div>
             </div>
           </div>
+
+          <ImageUpload
+            images={formData.images}
+            onImagesChange={(images) =>
+              setFormData({
+                ...formData,
+                images: images,
+              })
+            }
+            maxImages={10}
+          />
 
           <Tabs
             defaultValue="ru"

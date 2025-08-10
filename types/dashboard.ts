@@ -76,10 +76,13 @@ export enum Subtype {
 // Типы для обитателей
 export interface Inhabitant {
   id: string;
-  translations: Translation[];
-  type: AquariumType;
+  translations?: Translation[];
+  type: AquariumType | AquariumType[];
   subtype: Subtype;
-  images: string[];
+  images?: string[];
+  title?: string;
+  imageUrl?: string;
+  articleUrl?: string;
 }
 
 // Типы для запросов создания
@@ -143,24 +146,26 @@ export interface UpdateArticleRequest {
 }
 
 export interface CreateInhabitantRequest {
-  type: AquariumType;
+  type: AquariumType[];
   subtype: Subtype;
   translations: {
-    az: { title: string; description?: string };
-    ru: { title: string; description?: string };
-    en: { title: string; description?: string };
+    az: { title: string };
+    ru: { title: string };
+    en: { title: string };
   };
-  images: string[];
+  imageUrl?: string;
+  articleUrl?: string;
 }
 
 export interface UpdateInhabitantRequest {
   id: string;
-  type: AquariumType;
+  type: AquariumType[];
   subtype: Subtype;
   translations: {
-    az: { title: string; description?: string };
-    ru: { title: string; description?: string };
-    en: { title: string; description?: string };
+    az: { title: string };
+    ru: { title: string };
+    en: { title: string };
   };
-  images: string[];
+  imageUrl?: string;
+  articleUrl?: string;
 }
