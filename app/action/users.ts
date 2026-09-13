@@ -1,5 +1,7 @@
 "use server"
-const adminToken = process.env.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
+// ADMIN_TOKEN — тот же токен, что проверяет aquaDaddy.
+// Fallback оставлен для окружений, где переменную ещё не переименовали.
+const adminToken = process.env.ADMIN_TOKEN ?? process.env.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
 const apiUrl = process.env.USER_API_URL
 
 export const getUsers = async (page: number, limit: number) => {
@@ -53,13 +55,15 @@ export const deleteUser = async (id: string) => {
             throw new Error('USER_API_URL не настроен');
         }
 
-        const response = await fetch(`${apiUrl}/api/delete-user/${id}`, {
+        // Эндпоинт aquaDaddy принимает userId в теле, а не в пути
+        const response = await fetch(`${apiUrl}/api/delete-user`, {
             method: "DELETE",
             headers: {
                 'Accept': 'application/json',
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${adminToken}`,
-            }
+            },
+            body: JSON.stringify({ userId: id }),
         });
 
         if (!response.ok) {

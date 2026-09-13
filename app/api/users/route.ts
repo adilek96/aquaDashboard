@@ -7,12 +7,12 @@ export async function GET(request: NextRequest) {
     const limit = searchParams.get('limit') || '10'
     const search = searchParams.get('search') || ''
 
-    const adminToken = process.env.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
-    const userApiUrl = process.env.NEXT_PUBLIC_USER_API_URL
+    const adminToken = process.env.ADMIN_TOKEN ?? process.env.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
+    const userApiUrl = process.env.USER_API_URL
 
-    if (!adminToken) {
+    if (!adminToken || !userApiUrl) {
       return NextResponse.json(
-        { error: 'Admin token not configured' },
+        { error: 'ADMIN_TOKEN или USER_API_URL не настроены' },
         { status: 500 }
       )
     }
@@ -55,12 +55,12 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    const adminToken = process.env.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
-    const userApiUrl = process.env.NEXT_PUBLIC_USER_API_URL
+    const adminToken = process.env.ADMIN_TOKEN ?? process.env.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
+    const userApiUrl = process.env.USER_API_URL
 
-    if (!adminToken) {
+    if (!adminToken || !userApiUrl) {
       return NextResponse.json(
-        { error: 'Admin token not configured' },
+        { error: 'ADMIN_TOKEN или USER_API_URL не настроены' },
         { status: 500 }
       )
     }
