@@ -89,6 +89,8 @@ export interface Inhabitant {
   articleUrl?: string;
   profile?: Profile | null;
   gallery?: InhabitantGalleryItem[];
+  parentId?: string | null;
+  varietyCount?: number;
 }
 
 export type InhabitantGalleryItem = { url: string; credit?: string; sourceUrl?: string };
@@ -156,6 +158,7 @@ export interface UpdateArticleRequest {
 }
 
 export interface CreateInhabitantRequest {
+  parentId?: string | null;
   type: AquariumType[];
   subtype: Subtype;
   translations: {

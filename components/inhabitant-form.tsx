@@ -39,7 +39,17 @@ export type Locale = (typeof LOCALES)[number]["code"];
 
 export type GalleryItem = { url: string; credit: string; sourceUrl: string };
 
+/** Вид, к которому можно привязать подвид. */
+export type ParentOption = {
+  id: string;
+  title: string;
+  type: AquariumType[];
+  subtype: Subtype;
+};
+
 export type InhabitantFormState = {
+  /** Пусто — самостоятельный вид; иначе id вида, подвидом которого это является. */
+  parentId: string;
   type: AquariumType[];
   subtype: Subtype;
   images: string[];
@@ -50,6 +60,7 @@ export type InhabitantFormState = {
 };
 
 export const emptyInhabitantForm = (): InhabitantFormState => ({
+  parentId: "",
   type: [AquariumType.FRESHWATER],
   subtype: Subtype.FISHS,
   images: [],
@@ -257,12 +268,24 @@ function FieldControl({
 export function InhabitantForm({
   value,
   onChange,
+  parentOptions,
+  hasVarieties,
 }: {
   value: InhabitantFormState;
   onChange: (value: InhabitantFormState) => void;
+  /** Виды, к которым можно привязать; сам редактируемый обитатель исключён. */
+  parentOptions: ParentOption[];
+  /** У вида уже есть подвиды — сделать его подвидом нельзя. */
+  hasVarieties: boolean;
 }) {
   const ctx: TemplateContext = { subtype: value.subtype, types: value.type };
   const set = (patch: Partial<InhabitantFormState>) => onChange({ ...value, ...patch });
+
+  // Подвид живёт в тех же условиях, что и вид: тип и подтип берём у него
+  const selectParent = (id: string) => {
+    const parent = parentOptions.find((p) => p.id === id);
+    set(parent ? { parentId: id, type: parent.type, subtype: parent.subtype } : { parentId: "" });
+  };
 
   const setProfile = (key: string, fieldValue: Profile[string] | undefined) => {
     const profile = { ...value.profile };
@@ -290,6 +313,33 @@ export function InhabitantForm({
   return (
     <div className="space-y-8">
       <section className="space-y-4">
+        <div>
+          <Label className="mb-1.5 block">Подвид / порода вида</Label>
+          <Select
+            value={value.parentId || NONE}
+            onValueChange={(v) => selectParent(v === NONE ? "" : v)}
+            disabled={hasVarieties}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={NONE}>— самостоятельный вид</SelectItem>
+              {parentOptions.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {hasVarieties
+              ? "У этого вида есть подвиды, поэтому сам он подвидом быть не может."
+              : value.parentId
+                ? "Заполните только отличия: пустые поля паспорта и разделы статьи на сайте возьмутся у вида."
+                : "Для пород и подвидов выберите вид — на его странице появится список подвидов."}
+          </p>
+        </div>
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <span className="mb-1.5 block text-sm font-medium">Тип аквариума</span>

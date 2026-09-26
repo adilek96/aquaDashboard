@@ -73,6 +73,7 @@ function toForm(inhabitant: Inhabitant): InhabitantFormState {
   }
   return {
     ...form,
+    parentId: inhabitant.parentId ?? "",
     type: inhabitant.type.length > 0 ? inhabitant.type : form.type,
     subtype: inhabitant.subtype,
     images: inhabitant.imageUrl ? [inhabitant.imageUrl] : [],
@@ -90,6 +91,7 @@ function toForm(inhabitant: Inhabitant): InhabitantFormState {
 function toRequest(form: InhabitantFormState): CreateInhabitantRequest {
   const ctx = { subtype: form.subtype, types: form.type };
   return {
+    parentId: form.parentId || null,
     type: form.type,
     subtype: form.subtype,
     imageUrl: form.imageUrl.trim(),
@@ -212,7 +214,11 @@ export default function InhabitantsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Вы уверены, что хотите удалить этого обитателя?")) return;
+    const varieties = inhabitants.filter((i) => i.parentId === id).length;
+    const question = varieties
+      ? `Удалить этого обитателя вместе с подвидами (${varieties} шт.)?`
+      : "Вы уверены, что хотите удалить этого обитателя?";
+    if (!confirm(question)) return;
 
     try {
       const response = await deleteInhabitant(id);
@@ -234,12 +240,28 @@ export default function InhabitantsPage() {
     }
   };
 
-  const filteredInhabitants = inhabitants.filter((inhabitant) => {
-    const title = translationOf(inhabitant, "ru")?.title || inhabitant.title || "";
-    const matchesSearch = title.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = typeFilter === "all" || inhabitant.type.includes(typeFilter);
-    return matchesSearch && matchesType;
+  const ruTitle = (inhabitant: Inhabitant) =>
+    translationOf(inhabitant, "ru")?.title || inhabitant.title || "";
+
+  const matches = (inhabitant: Inhabitant) =>
+    ruTitle(inhabitant).toLowerCase().includes(searchTerm.toLowerCase()) &&
+    (typeFilter === "all" || inhabitant.type.includes(typeFilter));
+
+  // Подвиды выводятся сразу под своим видом. Вид показываем, если подходит
+  // он сам или хотя бы один его подвид — иначе подвид повис бы без родителя
+  const species = inhabitants
+    .filter((i) => !i.parentId)
+    .sort((a, b) => ruTitle(a).localeCompare(ruTitle(b), "ru"));
+  const varietiesOf = (id: string) => inhabitants.filter((i) => i.parentId === id);
+  const filteredInhabitants = species.flatMap((parent) => {
+    const children = varietiesOf(parent.id).filter(matches);
+    return matches(parent) || children.length > 0 ? [parent, ...children] : [];
   });
+
+  const editingHasVarieties = editingId ? varietiesOf(editingId).length > 0 : false;
+  const parentOptions = species
+    .filter((i) => i.id !== editingId)
+    .map((i) => ({ id: i.id, title: ruTitle(i) || "Без названия", type: i.type, subtype: i.subtype }));
 
   if (loading) {
     return (
@@ -309,8 +331,13 @@ export default function InhabitantsPage() {
           const { filled, total } = profileCompleteness(inhabitant.profile, ctx);
           const scientificName = inhabitant.profile?.scientificName as string | undefined;
 
+          const varietyCount = varietiesOf(inhabitant.id).length;
+
           return (
-            <Card key={inhabitant.id}>
+            <Card
+              key={inhabitant.id}
+              className={inhabitant.parentId ? "ml-10 border-dashed" : undefined}
+            >
               <CardHeader>
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex flex-1 items-start gap-4">
@@ -327,7 +354,13 @@ export default function InhabitantsPage() {
                       </div>
                     )}
                     <div>
-                      <CardTitle>{title}</CardTitle>
+                      <CardTitle className="flex flex-wrap items-center gap-2">
+                        {title}
+                        {inhabitant.parentId && <Badge variant="secondary">подвид</Badge>}
+                        {varietyCount > 0 && (
+                          <Badge variant="outline">подвидов: {varietyCount}</Badge>
+                        )}
+                      </CardTitle>
                       {scientificName && (
                         <p className="text-sm italic text-muted-foreground">{scientificName}</p>
                       )}
@@ -417,7 +450,12 @@ export default function InhabitantsPage() {
               Загрузка…
             </div>
           ) : (
-            <InhabitantForm value={formData} onChange={setFormData} />
+            <InhabitantForm
+              value={formData}
+              onChange={setFormData}
+              parentOptions={parentOptions}
+              hasVarieties={editingHasVarieties}
+            />
           )}
 
           <DialogFooter>
