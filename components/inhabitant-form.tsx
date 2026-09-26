@@ -37,11 +37,14 @@ export const LOCALES = [
 
 export type Locale = (typeof LOCALES)[number]["code"];
 
+export type GalleryItem = { url: string; credit: string; sourceUrl: string };
+
 export type InhabitantFormState = {
   type: AquariumType[];
   subtype: Subtype;
   images: string[];
   imageUrl: string;
+  gallery: GalleryItem[];
   profile: Profile;
   translations: Record<Locale, { title: string } & Sections>;
 };
@@ -51,6 +54,7 @@ export const emptyInhabitantForm = (): InhabitantFormState => ({
   subtype: Subtype.FISHS,
   images: [],
   imageUrl: "",
+  gallery: [],
   profile: {},
   translations: {
     ru: { title: "", ...emptySections() },
@@ -336,6 +340,58 @@ export function InhabitantForm({
             placeholder="Заполняется сам после загрузки"
           />
         </div>
+      </section>
+
+      <section className="space-y-4">
+        <div>
+          <h3 className="text-lg font-semibold">Галерея</h3>
+          <p className="text-sm text-muted-foreground">
+            Дополнительные фото на странице обитателя. Для чужих снимков укажите автора и
+            лицензию — например «Holger Krisp, CC BY 3.0» — и ссылку на источник.
+          </p>
+        </div>
+        <ImageUpload
+          images={value.gallery.map((g) => g.url)}
+          onImagesChange={(urls) =>
+            set({
+              gallery: urls.map(
+                (url) =>
+                  value.gallery.find((g) => g.url === url) ?? { url, credit: "", sourceUrl: "" }
+              ),
+            })
+          }
+          maxImages={8}
+        />
+        {value.gallery.map((item, index) => {
+          const update = (patch: Partial<GalleryItem>) =>
+            set({
+              gallery: value.gallery.map((g, i) => (i === index ? { ...g, ...patch } : g)),
+            });
+          return (
+            <div key={item.url} className="flex items-start gap-3 rounded-lg border p-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={item.url}
+                alt=""
+                className="h-16 w-16 shrink-0 rounded-md bg-muted object-cover"
+              />
+              <div className="grid flex-1 gap-2 md:grid-cols-2">
+                <Input
+                  value={item.credit}
+                  placeholder="Автор и лицензия"
+                  aria-label={`Фото ${index + 1}: автор и лицензия`}
+                  onChange={(e) => update({ credit: e.target.value })}
+                />
+                <Input
+                  value={item.sourceUrl}
+                  placeholder="Ссылка на источник"
+                  aria-label={`Фото ${index + 1}: ссылка на источник`}
+                  onChange={(e) => update({ sourceUrl: e.target.value })}
+                />
+              </div>
+            </div>
+          );
+        })}
       </section>
 
       <section className="space-y-6">

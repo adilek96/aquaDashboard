@@ -88,7 +88,10 @@ export interface Inhabitant {
   imageUrl?: string;
   articleUrl?: string;
   profile?: Profile | null;
+  gallery?: InhabitantGalleryItem[];
 }
+
+export type InhabitantGalleryItem = { url: string; credit?: string; sourceUrl?: string };
 
 type InhabitantTranslationInput = { title: string } & Partial<Record<SectionKey, string>>;
 
@@ -162,6 +165,7 @@ export interface CreateInhabitantRequest {
   };
   imageUrl?: string;
   profile?: Profile | null;
+  gallery?: InhabitantGalleryItem[];
 }
 
 export interface UpdateInhabitantRequest extends CreateInhabitantRequest {

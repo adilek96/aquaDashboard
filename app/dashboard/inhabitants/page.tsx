@@ -77,6 +77,11 @@ function toForm(inhabitant: Inhabitant): InhabitantFormState {
     subtype: inhabitant.subtype,
     images: inhabitant.imageUrl ? [inhabitant.imageUrl] : [],
     imageUrl: inhabitant.imageUrl ?? "",
+    gallery: (inhabitant.gallery ?? []).map((g) => ({
+      url: g.url,
+      credit: g.credit ?? "",
+      sourceUrl: g.sourceUrl ?? "",
+    })),
     profile: inhabitant.profile ?? {},
   };
 }
@@ -89,6 +94,11 @@ function toRequest(form: InhabitantFormState): CreateInhabitantRequest {
     subtype: form.subtype,
     imageUrl: form.imageUrl.trim(),
     profile: visibleProfile(form.profile, ctx),
+    gallery: form.gallery.map((g) => ({
+      url: g.url,
+      ...(g.credit.trim() ? { credit: g.credit.trim() } : {}),
+      ...(g.sourceUrl.trim() ? { sourceUrl: g.sourceUrl.trim() } : {}),
+    })),
     translations: {
       ru: form.translations.ru,
       az: form.translations.az,
