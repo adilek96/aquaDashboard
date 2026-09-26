@@ -1,4 +1,5 @@
 // Общие типы для всех страниц dashboard
+import type { Profile, SectionKey } from "@/lib/inhabitant-template";
 
 // Типы для переводов
 export interface Translation {
@@ -74,16 +75,22 @@ export enum Subtype {
 }
 
 // Типы для обитателей
+export type InhabitantTranslation = { locale: string; title: string } & Partial<
+  Record<SectionKey, string | null>
+>;
+
 export interface Inhabitant {
   id: string;
-  translations?: Translation[];
-  type: AquariumType | AquariumType[];
+  translations?: InhabitantTranslation[];
+  type: AquariumType[];
   subtype: Subtype;
-  images?: string[];
   title?: string;
   imageUrl?: string;
   articleUrl?: string;
+  profile?: Profile | null;
 }
+
+type InhabitantTranslationInput = { title: string } & Partial<Record<SectionKey, string>>;
 
 // Типы для запросов создания
 export interface CreateCategoryRequest {
@@ -149,23 +156,14 @@ export interface CreateInhabitantRequest {
   type: AquariumType[];
   subtype: Subtype;
   translations: {
-    az: { title: string };
-    ru: { title: string };
-    en: { title: string };
+    az: InhabitantTranslationInput;
+    ru: InhabitantTranslationInput;
+    en: InhabitantTranslationInput;
   };
   imageUrl?: string;
-  articleUrl?: string;
+  profile?: Profile | null;
 }
 
-export interface UpdateInhabitantRequest {
+export interface UpdateInhabitantRequest extends CreateInhabitantRequest {
   id: string;
-  type: AquariumType[];
-  subtype: Subtype;
-  translations: {
-    az: { title: string };
-    ru: { title: string };
-    en: { title: string };
-  };
-  imageUrl?: string;
-  articleUrl?: string;
 }

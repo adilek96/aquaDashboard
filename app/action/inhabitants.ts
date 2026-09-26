@@ -9,7 +9,7 @@ export async function getInhabitants() {
             throw new Error('API_URL не настроен');
         }
 
-        const response = await fetch(`${apiUrl}/inhabitants`, {
+        const response = await fetch(`${apiUrl}/inhabitants?all=1`, {
             headers: {
                 'Authorization': `Bearer ${adminToken}`,
                 'Accept': 'application/json',
@@ -43,6 +43,36 @@ export async function getInhabitants() {
             statusCode: 500,
             data: null,
             error: error instanceof Error ? error.message : 'Failed to fetch inhabitants'
+        };
+    }
+}
+
+// Один обитатель со всеми переводами и разделами — для формы редактирования.
+// Список отдаёт разделы без текста, а сохранение формы перезаписывает все языки.
+export async function getInhabitant(id: string) {
+    try {
+        if (!apiUrl) {
+            throw new Error('API_URL не настроен');
+        }
+
+        const response = await fetch(`${apiUrl}/inhabitants/inhabitant/${encodeURIComponent(id)}?all=1`, {
+            headers: { 'Accept': 'application/json' },
+            cache: 'no-store',
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`API вернул статус ${response.status}: ${errorText}`);
+        }
+
+        const data = await response.json();
+        return { statusCode: 200, data: data.inhabitant, error: null };
+    } catch (error) {
+        console.error('Error fetching inhabitant:', error);
+        return {
+            statusCode: 500,
+            data: null,
+            error: error instanceof Error ? error.message : 'Failed to fetch inhabitant'
         };
     }
 }

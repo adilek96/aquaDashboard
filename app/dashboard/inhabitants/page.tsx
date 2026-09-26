@@ -25,63 +25,95 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import {
-  Plus,
-  Search,
-  Edit,
-  Trash2,
-  Fish,
-  Languages,
-  Image,
-  Link,
-} from "lucide-react";
-import { ImageUpload } from "@/components/image-upload";
-
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Plus, Search, Edit, Trash2, Fish, Loader2, ClipboardList } from "lucide-react";
 import {
   createInhabitant,
   deleteInhabitant,
+  getInhabitant,
   getInhabitants,
   updateInhabitant,
 } from "@/app/action/inhabitants";
 import {
-  Translation,
   AquariumType,
-  Subtype,
   Inhabitant,
+  InhabitantTranslation,
   CreateInhabitantRequest,
-  UpdateInhabitantRequest,
 } from "@/types/dashboard";
+import {
+  InhabitantForm,
+  InhabitantFormState,
+  LOCALES,
+  SUBTYPE_LABELS,
+  TYPE_LABELS,
+  emptyInhabitantForm,
+} from "@/components/inhabitant-form";
+import {
+  SECTION_KEYS,
+  emptySections,
+  profileCompleteness,
+  visibleProfile,
+} from "@/lib/inhabitant-template";
+
+function translationOf(inhabitant: Inhabitant, locale: string) {
+  return inhabitant.translations?.find((t: InhabitantTranslation) => t.locale === locale);
+}
+
+/** Данные из API → состояние формы. */
+function toForm(inhabitant: Inhabitant): InhabitantFormState {
+  const form = emptyInhabitantForm();
+  for (const { code } of LOCALES) {
+    const t = translationOf(inhabitant, code);
+    form.translations[code] = {
+      ...emptySections(),
+      title: t?.title ?? (code === "ru" ? inhabitant.title ?? "" : ""),
+      ...Object.fromEntries(SECTION_KEYS.map((key) => [key, t?.[key] ?? ""])),
+    };
+  }
+  return {
+    ...form,
+    type: inhabitant.type.length > 0 ? inhabitant.type : form.type,
+    subtype: inhabitant.subtype,
+    images: inhabitant.imageUrl ? [inhabitant.imageUrl] : [],
+    imageUrl: inhabitant.imageUrl ?? "",
+    profile: inhabitant.profile ?? {},
+  };
+}
+
+/** Состояние формы → тело запроса. */
+function toRequest(form: InhabitantFormState): CreateInhabitantRequest {
+  const ctx = { subtype: form.subtype, types: form.type };
+  return {
+    type: form.type,
+    subtype: form.subtype,
+    imageUrl: form.imageUrl.trim(),
+    profile: visibleProfile(form.profile, ctx),
+    translations: {
+      ru: form.translations.ru,
+      az: form.translations.az,
+      en: form.translations.en,
+    },
+  };
+}
 
 export default function InhabitantsPage() {
   const [inhabitants, setInhabitants] = useState<Inhabitant[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<AquariumType | "all">("all");
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editingInhabitant, setEditingInhabitant] = useState<Inhabitant | null>(
-    null
-  );
-  const [formData, setFormData] = useState({
-    az: { title: "" },
-    ru: { title: "" },
-    en: { title: "" },
-    type: [AquariumType.FRESHWATER] as AquariumType[],
-    subtype: Subtype.FISHS,
-    images: [] as string[],
-    imageUrl: "", // Добавляем поле для ручного ввода URL
-    articleUrl: "",
-  });
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  // null — создание, иначе id редактируемого обитателя
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [formData, setFormData] = useState<InhabitantFormState>(emptyInhabitantForm);
+  const [loadingForm, setLoadingForm] = useState(false);
+  const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
     fetchInhabitants();
-  }, [searchTerm, typeFilter]);
+  }, []);
 
   const fetchInhabitants = async () => {
     try {
@@ -103,76 +135,69 @@ export default function InhabitantsPage() {
     }
   };
 
-  const handleCreate = async () => {
-    try {
-      const inhabitantData: CreateInhabitantRequest = {
-        type: formData.type, // Уже массив
-        subtype: formData.subtype,
-        translations: {
-          az: formData.az,
-          ru: formData.ru,
-          en: formData.en,
-        },
-        imageUrl: formData.images.length > 0 ? formData.images[0] : undefined, // Берем первое изображение
-        articleUrl: formData.articleUrl || undefined,
-      };
-      const response = await createInhabitant(inhabitantData);
-      if (response.statusCode === 200) {
-        toast({
-          title: "Успешно",
-          description: "Обитатель создан",
-        });
-        setIsCreateDialogOpen(false);
-        resetForm();
-        fetchInhabitants();
-      } else {
-        throw new Error(response.error || "Ошибка создания обитателя");
-      }
-    } catch (error) {
+  const openCreate = () => {
+    setEditingId(null);
+    setFormData(emptyInhabitantForm());
+    setDialogOpen(true);
+  };
+
+  const openEdit = async (inhabitant: Inhabitant) => {
+    setEditingId(inhabitant.id);
+    setFormData(toForm(inhabitant));
+    setDialogOpen(true);
+
+    // В списке нет текстов разделов — догружаем обитателя целиком
+    setLoadingForm(true);
+    const response = await getInhabitant(inhabitant.id);
+    setLoadingForm(false);
+    if (response.statusCode === 200 && response.data) {
+      setFormData(toForm(response.data));
+    } else {
       toast({
         title: "Ошибка",
-        description: "Не удалось создать обитателя",
+        description: "Не удалось загрузить статью обитателя",
         variant: "destructive",
       });
+      setDialogOpen(false);
     }
   };
 
-  const handleEdit = async () => {
-    if (!editingInhabitant) return;
+  const handleSave = async () => {
+    if (!formData.translations.ru.title.trim()) {
+      toast({
+        title: "Нужно название",
+        description: "Заполните хотя бы название на русском",
+        variant: "destructive",
+      });
+      return;
+    }
 
+    setSaving(true);
     try {
-      const inhabitantData: UpdateInhabitantRequest = {
-        id: editingInhabitant.id,
-        type: formData.type,
-        subtype: formData.subtype,
-        translations: {
-          az: formData.az,
-          ru: formData.ru,
-          en: formData.en,
-        },
-        imageUrl:
-          formData.imageUrl ||
-          (formData.images.length > 0 ? formData.images[0] : undefined), // Приоритет imageUrl, затем первое изображение
-        articleUrl: formData.articleUrl || undefined,
-      };
-      const response = await updateInhabitant(inhabitantData);
-      if (response.statusCode === 200) {
-        toast({
-          title: "Успешно",
-          description: "Обитатель обновлен",
-        });
-        setIsEditDialogOpen(false);
-        resetForm();
-        fetchInhabitants();
-      } else {
-        throw new Error(response.error || "Ошибка обновления обитателя");
+      const body = toRequest(formData);
+      const response = editingId
+        ? await updateInhabitant({ ...body, id: editingId })
+        : await createInhabitant(body);
+
+      if (response.statusCode !== 200) {
+        throw new Error(response.error || "Ошибка сохранения");
       }
+
+      toast({
+        title: "Успешно",
+        description: editingId ? "Обитатель обновлён" : "Обитатель создан",
+      });
+      setDialogOpen(false);
+      fetchInhabitants();
     } catch (error) {
       toast({
         title: "Ошибка",
-        description: "Не удалось обновить обитателя",
+        description:
+          error instanceof Error ? error.message : "Не удалось сохранить обитателя",
         variant: "destructive",
       });
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -199,68 +224,12 @@ export default function InhabitantsPage() {
     }
   };
 
-  const openEditDialog = (inhabitant: Inhabitant) => {
-    setEditingInhabitant(inhabitant);
-
-    // Заполняем форму данными обитателя
-    const ruTranslation = inhabitant.translations?.find(
-      (t: Translation) => t.locale === "ru"
-    );
-    const azTranslation = inhabitant.translations?.find(
-      (t: Translation) => t.locale === "az"
-    );
-    const enTranslation = inhabitant.translations?.find(
-      (t: Translation) => t.locale === "en"
-    );
-
-    setFormData({
-      ru: {
-        title: ruTranslation?.title || inhabitant.title || "",
-      },
-      az: {
-        title: azTranslation?.title || "",
-      },
-      en: {
-        title: enTranslation?.title || "",
-      },
-      type: Array.isArray(inhabitant.type)
-        ? inhabitant.type
-        : [inhabitant.type],
-      subtype: inhabitant.subtype,
-      images: inhabitant.imageUrl
-        ? [inhabitant.imageUrl]
-        : inhabitant.images || [],
-      imageUrl: inhabitant.imageUrl || "", // Устанавливаем imageUrl
-      articleUrl: inhabitant.articleUrl || "",
-    });
-    setIsEditDialogOpen(true);
-  };
-
-  const resetForm = () => {
-    setFormData({
-      az: { title: "" },
-      ru: { title: "" },
-      en: { title: "" },
-      type: [AquariumType.FRESHWATER],
-      subtype: Subtype.FISHS,
-      images: [],
-      imageUrl: "", // Сбрасываем imageUrl
-      articleUrl: "",
-    });
-    setEditingInhabitant(null);
-  };
-
-  const filteredInhabitants = (inhabitants || []).filter((inhabitant) => {
-    // Используем прямое поле title, если translations нет
-    const title =
-      inhabitant.title ||
-      inhabitant.translations?.find((t: Translation) => t.locale === "ru")
-        ?.title ||
-      "";
-    return title.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredInhabitants = inhabitants.filter((inhabitant) => {
+    const title = translationOf(inhabitant, "ru")?.title || inhabitant.title || "";
+    const matchesSearch = title.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesType = typeFilter === "all" || inhabitant.type.includes(typeFilter);
+    return matchesSearch && matchesType;
   });
-
-  const availableTypes = Object.values(AquariumType);
 
   if (loading) {
     return (
@@ -283,223 +252,13 @@ export default function InhabitantsPage() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Обитатели</h1>
           <p className="text-muted-foreground">
-            Управляйте обитателями аквариума
+            Карточки обитателей для энциклопедии: паспорт и статья по единому шаблону
           </p>
         </div>
-        <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
-              Добавить обитателя
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Добавить обитателя</DialogTitle>
-              <DialogDescription>
-                Добавьте нового обитателя с переводами на трех языках
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Тип аквариума</Label>
-                  <Select
-                    value={formData.type[0] || ""}
-                    onValueChange={(value: AquariumType) =>
-                      setFormData({ ...formData, type: [value] })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Выберите тип аквариума" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={AquariumType.FRESHWATER}>
-                        Пресноводный
-                      </SelectItem>
-                      <SelectItem value={AquariumType.SALTWATER}>
-                        Морской
-                      </SelectItem>
-                      <SelectItem value={AquariumType.PALUDARIUM}>
-                        Паладариум
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Подтип</Label>
-                  <Select
-                    value={formData.subtype}
-                    onValueChange={(value: Subtype) =>
-                      setFormData({ ...formData, subtype: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Выберите подтип" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={Subtype.FISHS}>Рыбы</SelectItem>
-                      <SelectItem value={Subtype.REPTILES}>Рептилии</SelectItem>
-                      <SelectItem value={Subtype.AMPHIBIANS}>
-                        Амфибии
-                      </SelectItem>
-                      <SelectItem value={Subtype.TURTLES}>Черепахи</SelectItem>
-                      <SelectItem value={Subtype.FROGS}>Лягушки</SelectItem>
-                      <SelectItem value={Subtype.CORALS}>Кораллы</SelectItem>
-                      <SelectItem value={Subtype.PLANTS}>Растения</SelectItem>
-                      <SelectItem value={Subtype.SHRIMPS}>Креветки</SelectItem>
-                      <SelectItem value={Subtype.CRAYFISH}>Раки</SelectItem>
-                      <SelectItem value={Subtype.CRABS}>Крабы</SelectItem>
-                      <SelectItem value={Subtype.SNAILS}>Улитки</SelectItem>
-                      <SelectItem value={Subtype.STARFISHS}>
-                        Морские звезды
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <ImageUpload
-                images={formData.images}
-                onImagesChange={(images) =>
-                  setFormData({
-                    ...formData,
-                    images: images,
-                    // Автоматически заполняем imageUrl первым изображением, если поле пустое
-                    imageUrl:
-                      formData.imageUrl || (images.length > 0 ? images[0] : ""),
-                  })
-                }
-                maxImages={5}
-              />
-
-              <div>
-                <Label htmlFor="imageUrl">URL изображения</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="imageUrl"
-                    value={formData.imageUrl}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        imageUrl: e.target.value,
-                      })
-                    }
-                    placeholder="https://example.com/image.jpg"
-                  />
-                  {formData.images.length > 0 && (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() =>
-                        setFormData({
-                          ...formData,
-                          imageUrl: formData.images[0],
-                        })
-                      }
-                      title="Использовать первое загруженное изображение"
-                    >
-                      Авто
-                    </Button>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Введите URL изображения или используйте загруженные
-                  изображения выше
-                </p>
-              </div>
-
-              <div>
-                <Label htmlFor="articleUrl">Ссылка на статью</Label>
-                <Input
-                  id="articleUrl"
-                  value={formData.articleUrl}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      articleUrl: e.target.value,
-                    })
-                  }
-                  placeholder="https://example.com/article"
-                />
-              </div>
-
-              <Tabs defaultValue="ru" className="w-full">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="ru">Русский</TabsTrigger>
-                  <TabsTrigger value="az">Азербайджанский</TabsTrigger>
-                  <TabsTrigger value="en">Английский</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="ru" className="space-y-4">
-                  <div>
-                    <Label htmlFor="ru-title">Название (Русский)</Label>
-                    <Input
-                      id="ru-title"
-                      value={formData.ru.title}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          ru: {
-                            title: e.target.value,
-                          },
-                        })
-                      }
-                      placeholder="Введите название на русском"
-                    />
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="az" className="space-y-4">
-                  <div>
-                    <Label htmlFor="az-title">Название (Азербайджанский)</Label>
-                    <Input
-                      id="az-title"
-                      value={formData.az.title}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          az: {
-                            title: e.target.value,
-                          },
-                        })
-                      }
-                      placeholder="Введите название на азербайджанском"
-                    />
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="en" className="space-y-4">
-                  <div>
-                    <Label htmlFor="en-title">Название (Английский)</Label>
-                    <Input
-                      id="en-title"
-                      value={formData.en.title}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          en: {
-                            title: e.target.value,
-                          },
-                        })
-                      }
-                      placeholder="Введите название на английском"
-                    />
-                  </div>
-                </TabsContent>
-              </Tabs>
-            </div>
-            <DialogFooter>
-              <Button
-                variant="outline"
-                onClick={() => setIsCreateDialogOpen(false)}
-              >
-                Отмена
-              </Button>
-              <Button onClick={handleCreate}>Добавить обитателя</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <Button onClick={openCreate}>
+          <Plus className="w-4 h-4 mr-2" />
+          Добавить обитателя
+        </Button>
       </div>
 
       <div className="flex items-center space-x-6">
@@ -515,22 +274,18 @@ export default function InhabitantsPage() {
         <div className="w-64">
           <Select
             value={typeFilter}
-            onValueChange={(value) =>
-              setTypeFilter(value as AquariumType | "all")
-            }
+            onValueChange={(value) => setTypeFilter(value as AquariumType | "all")}
           >
             <SelectTrigger>
               <SelectValue placeholder="Все типы" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Все типы</SelectItem>
-              <SelectItem value={AquariumType.FRESHWATER}>
-                Пресноводный
-              </SelectItem>
-              <SelectItem value={AquariumType.SALTWATER}>Морской</SelectItem>
-              <SelectItem value={AquariumType.PALUDARIUM}>
-                Паладариум
-              </SelectItem>
+              {Object.values(AquariumType).map((type) => (
+                <SelectItem key={type} value={type}>
+                  {TYPE_LABELS[type]}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -538,54 +293,46 @@ export default function InhabitantsPage() {
 
       <div className="grid gap-4">
         {filteredInhabitants.map((inhabitant) => {
-          // Используем прямое поле title или переводы
           const title =
-            inhabitant.title ||
-            inhabitant.translations?.find((t: Translation) => t.locale === "ru")
-              ?.title ||
-            "Без названия";
-          const ruTranslation = inhabitant.translations?.find(
-            (t: Translation) => t.locale === "ru"
-          );
-          const azTranslation = inhabitant.translations?.find(
-            (t: Translation) => t.locale === "az"
-          );
-          const enTranslation = inhabitant.translations?.find(
-            (t: Translation) => t.locale === "en"
-          );
+            translationOf(inhabitant, "ru")?.title || inhabitant.title || "Без названия";
+          const ctx = { subtype: inhabitant.subtype, types: inhabitant.type };
+          const { filled, total } = profileCompleteness(inhabitant.profile, ctx);
+          const scientificName = inhabitant.profile?.scientificName as string | undefined;
 
           return (
             <Card key={inhabitant.id}>
               <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="flex items-center gap-2">
-                      <Fish className="w-5 h-5" />
-                      {title}
-                    </CardTitle>
-                    <CardDescription>
-                      Тип:{" "}
-                      {Array.isArray(inhabitant.type)
-                        ? inhabitant.type.join(", ")
-                        : inhabitant.type}{" "}
-                      • Подтип: {inhabitant.subtype}
-                    </CardDescription>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex flex-1 items-start gap-4">
+                    {inhabitant.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={inhabitant.imageUrl}
+                        alt=""
+                        className="h-16 w-16 shrink-0 rounded-md bg-muted object-cover"
+                      />
+                    ) : (
+                      <div className="grid h-16 w-16 shrink-0 place-items-center rounded-md bg-muted">
+                        <Fish className="h-6 w-6 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div>
+                      <CardTitle>{title}</CardTitle>
+                      {scientificName && (
+                        <p className="text-sm italic text-muted-foreground">{scientificName}</p>
+                      )}
+                      <CardDescription className="mt-1">
+                        {inhabitant.type.map((t) => TYPE_LABELS[t] ?? t).join(", ")} •{" "}
+                        {SUBTYPE_LABELS[inhabitant.subtype] ?? inhabitant.subtype}
+                      </CardDescription>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge
-                      variant="outline"
-                      className="flex items-center gap-1"
-                    >
-                      <Languages className="w-3 h-3" />
-                      {inhabitant.translations
-                        ? inhabitant.translations.length
-                        : 1}
-                      /3
-                    </Badge>
                     <Button
                       variant="outline"
                       size="icon"
-                      onClick={() => openEditDialog(inhabitant)}
+                      onClick={() => openEdit(inhabitant)}
+                      aria-label="Редактировать"
                     >
                       <Edit className="w-4 h-4" />
                     </Button>
@@ -593,6 +340,7 @@ export default function InhabitantsPage() {
                       variant="outline"
                       size="icon"
                       onClick={() => handleDelete(inhabitant.id)}
+                      aria-label="Удалить"
                     >
                       <Trash2 className="w-4 h-4" />
                     </Button>
@@ -600,134 +348,19 @@ export default function InhabitantsPage() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  <div>
-                    <h4 className="font-semibold mb-2 text-sm text-muted-foreground">
-                      Переводы:
-                    </h4>
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {(() => {
-                        // Проверяем наличие переводов или прямого title
-                        const hasRuTranslation =
-                          (ruTranslation?.title &&
-                            ruTranslation.title.trim() !== "") ||
-                          (inhabitant.title && inhabitant.title.trim() !== "");
-                        const hasAzTranslation =
-                          azTranslation?.title &&
-                          azTranslation.title.trim() !== "";
-                        const hasEnTranslation =
-                          enTranslation?.title &&
-                          enTranslation.title.trim() !== "";
-
-                        return (
-                          <>
-                            <Badge
-                              variant={
-                                hasRuTranslation ? "default" : "secondary"
-                              }
-                              className={`text-xs px-2 py-0.5 ${
-                                hasRuTranslation
-                                  ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-900 dark:text-green-300 dark:border-green-700"
-                                  : "bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
-                              }`}
-                              title={
-                                hasRuTranslation
-                                  ? "Перевод на русский: есть"
-                                  : "Перевод на русский: отсутствует"
-                              }
-                            >
-                              RU {hasRuTranslation ? "✓" : "✗"}
-                            </Badge>
-                            <Badge
-                              variant={
-                                hasAzTranslation ? "default" : "secondary"
-                              }
-                              className={`text-xs px-2 py-0.5 ${
-                                hasAzTranslation
-                                  ? "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900 dark:text-blue-300 dark:border-blue-700"
-                                  : "bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
-                              }`}
-                              title={
-                                hasAzTranslation
-                                  ? "Перевод на азербайджанский: есть"
-                                  : "Перевод на азербайджанский: отсутствует"
-                              }
-                            >
-                              AZ {hasAzTranslation ? "✓" : "✗"}
-                            </Badge>
-                            <Badge
-                              variant={
-                                hasEnTranslation ? "default" : "secondary"
-                              }
-                              className={`text-xs px-2 py-0.5 ${
-                                hasEnTranslation
-                                  ? "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900 dark:text-purple-300 dark:border-purple-700"
-                                  : "bg-gray-100 text-gray-500 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
-                              }`}
-                              title={
-                                hasEnTranslation
-                                  ? "Перевод на английский: есть"
-                                  : "Перевод на английский: отсутствует"
-                              }
-                            >
-                              EN {hasEnTranslation ? "✓" : "✗"}
-                            </Badge>
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    <div>
-                      <h5 className="font-medium mb-1">Русский</h5>
-                      <p className="text-muted-foreground text-xs">
-                        {ruTranslation?.title ||
-                          inhabitant.title ||
-                          "Не переведено"}
-                      </p>
-                    </div>
-                    <div>
-                      <h5 className="font-medium mb-1">Азербайджанский</h5>
-                      <p className="text-muted-foreground text-xs">
-                        {azTranslation?.title || "Не переведено"}
-                      </p>
-                    </div>
-                    <div>
-                      <h5 className="font-medium mb-1">Английский</h5>
-                      <p className="text-muted-foreground text-xs">
-                        {enTranslation?.title || "Не переведено"}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                <div className="mt-4 pt-4 border-t">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">
-                      Тип аквариума:
-                    </span>
-                    <Badge variant="secondary" className="text-xs">
-                      {Array.isArray(inhabitant.type)
-                        ? inhabitant.type.join(", ")
-                        : inhabitant.type}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-sm mt-2">
-                    <span className="text-muted-foreground">Подтип:</span>
-                    <Badge variant="outline">{inhabitant.subtype}</Badge>
-                  </div>
-                  {inhabitant.images && inhabitant.images.length > 0 && (
-                    <div className="flex items-center justify-between text-sm mt-2">
-                      <span className="text-muted-foreground">
-                        Изображения:
-                      </span>
-                      <div className="flex items-center gap-1">
-                        <Image className="w-3 h-3" />
-                        <span className="text-xs">
-                          {inhabitant.images.length} шт.
-                        </span>
-                      </div>
-                    </div>
-                  )}
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <Badge variant="outline" className="gap-1">
+                    <ClipboardList className="h-3 w-3" />
+                    Паспорт {filled}/{total}
+                  </Badge>
+                  {LOCALES.map(({ code }) => {
+                    const has = Boolean(translationOf(inhabitant, code)?.title?.trim());
+                    return (
+                      <Badge key={code} variant={has ? "default" : "secondary"}>
+                        {code.toUpperCase()} {has ? "✓" : "✗"}
+                      </Badge>
+                    );
+                  })}
                 </div>
               </CardContent>
             </Card>
@@ -748,7 +381,7 @@ export default function InhabitantsPage() {
                   ? "Попробуйте изменить фильтры поиска"
                   : "Добавьте первого обитателя для начала работы"}
               </p>
-              <Button onClick={() => setIsCreateDialogOpen(true)}>
+              <Button onClick={openCreate}>
                 <Plus className="w-4 h-4 mr-2" />
                 Добавить обитателя
               </Button>
@@ -757,212 +390,34 @@ export default function InhabitantsPage() {
         </Card>
       )}
 
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => !saving && setDialogOpen(open)}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Редактировать обитателя</DialogTitle>
+            <DialogTitle>
+              {editingId ? "Редактировать обитателя" : "Добавить обитателя"}
+            </DialogTitle>
             <DialogDescription>
-              Внесите изменения в данные обитателя
+              Заполните паспорт и разделы статьи — на сайте они выводятся по единому шаблону
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label>Тип аквариума</Label>
-                <Select
-                  value={formData.type[0] || ""}
-                  onValueChange={(value: AquariumType) =>
-                    setFormData({ ...formData, type: [value] })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Выберите тип аквариума" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={AquariumType.FRESHWATER}>
-                      Пресноводный
-                    </SelectItem>
-                    <SelectItem value={AquariumType.SALTWATER}>
-                      Морской
-                    </SelectItem>
-                    <SelectItem value={AquariumType.PALUDARIUM}>
-                      Паладариум
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Подтип</Label>
-                <Select
-                  value={formData.subtype}
-                  onValueChange={(value: Subtype) =>
-                    setFormData({ ...formData, subtype: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Выберите подтип" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={Subtype.FISHS}>Рыбы</SelectItem>
-                    <SelectItem value={Subtype.REPTILES}>Рептилии</SelectItem>
-                    <SelectItem value={Subtype.AMPHIBIANS}>Амфибии</SelectItem>
-                    <SelectItem value={Subtype.TURTLES}>Черепахи</SelectItem>
-                    <SelectItem value={Subtype.FROGS}>Лягушки</SelectItem>
-                    <SelectItem value={Subtype.CORALS}>Кораллы</SelectItem>
-                    <SelectItem value={Subtype.PLANTS}>Растения</SelectItem>
-                    <SelectItem value={Subtype.SHRIMPS}>Креветки</SelectItem>
-                    <SelectItem value={Subtype.CRAYFISH}>Раки</SelectItem>
-                    <SelectItem value={Subtype.CRABS}>Крабы</SelectItem>
-                    <SelectItem value={Subtype.SNAILS}>Улитки</SelectItem>
-                    <SelectItem value={Subtype.STARFISHS}>
-                      Морские звезды
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+
+          {loadingForm ? (
+            <div className="flex items-center justify-center py-16 text-muted-foreground">
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              Загрузка…
             </div>
+          ) : (
+            <InhabitantForm value={formData} onChange={setFormData} />
+          )}
 
-            <ImageUpload
-              images={formData.images}
-              onImagesChange={(images) =>
-                setFormData({
-                  ...formData,
-                  images: images,
-                  // Автоматически заполняем imageUrl первым изображением, если поле пустое
-                  imageUrl:
-                    formData.imageUrl || (images.length > 0 ? images[0] : ""),
-                })
-              }
-              maxImages={5}
-            />
-
-            <div>
-              <Label htmlFor="edit-imageUrl">URL изображения</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="edit-imageUrl"
-                  value={formData.imageUrl}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      imageUrl: e.target.value,
-                    })
-                  }
-                  placeholder="https://example.com/image.jpg"
-                />
-                {formData.images.length > 0 && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() =>
-                      setFormData({
-                        ...formData,
-                        imageUrl: formData.images[0],
-                      })
-                    }
-                    title="Использовать первое загруженное изображение"
-                  >
-                    Авто
-                  </Button>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Введите URL изображения или используйте загруженные изображения
-                выше
-              </p>
-            </div>
-
-            <div>
-              <Label htmlFor="edit-articleUrl">Ссылка на статью</Label>
-              <Input
-                id="edit-articleUrl"
-                value={formData.articleUrl}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    articleUrl: e.target.value,
-                  })
-                }
-                placeholder="https://example.com/article"
-              />
-            </div>
-
-            <Tabs defaultValue="ru" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="ru">Русский</TabsTrigger>
-                <TabsTrigger value="az">Азербайджанский</TabsTrigger>
-                <TabsTrigger value="en">Английский</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="ru" className="space-y-4">
-                <div>
-                  <Label htmlFor="edit-ru-title">Название (Русский)</Label>
-                  <Input
-                    id="edit-ru-title"
-                    value={formData.ru.title}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        ru: {
-                          title: e.target.value,
-                        },
-                      })
-                    }
-                    placeholder="Введите название на русском"
-                  />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="az" className="space-y-4">
-                <div>
-                  <Label htmlFor="edit-az-title">
-                    Название (Азербайджанский)
-                  </Label>
-                  <Input
-                    id="edit-az-title"
-                    value={formData.az.title}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        az: {
-                          title: e.target.value,
-                        },
-                      })
-                    }
-                    placeholder="Введите название на азербайджанском"
-                  />
-                </div>
-              </TabsContent>
-
-              <TabsContent value="en" className="space-y-4">
-                <div>
-                  <Label htmlFor="edit-en-title">Название (Английский)</Label>
-                  <Input
-                    id="edit-en-title"
-                    value={formData.en.title}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        en: {
-                          title: e.target.value,
-                        },
-                      })
-                    }
-                    placeholder="Введите название на английском"
-                  />
-                </div>
-              </TabsContent>
-            </Tabs>
-          </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsEditDialogOpen(false)}
-            >
+            <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
               Отмена
             </Button>
-            <Button onClick={handleEdit}>Сохранить изменения</Button>
+            <Button onClick={handleSave} disabled={saving || loadingForm}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {editingId ? "Сохранить изменения" : "Добавить обитателя"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
