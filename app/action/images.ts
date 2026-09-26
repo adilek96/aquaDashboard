@@ -1,6 +1,10 @@
 'use server'
 
-const adminToken = process.env.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
+// ADMIN_TOKEN — тот самый ключ, который проверяет вики.
+// NEXT_SERVER_ACTIONS_ENCRYPTION_KEY — переменная Next для шифрования
+// server actions, к авторизации отношения не имеет; оставлен запасным
+// вариантом для окружений, где переменную ещё не переименовали.
+const adminToken = process.env.ADMIN_TOKEN ?? process.env.NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
 const apiUrl = process.env.API_URL
 
 export async function uploadImage(formData: FormData) {
