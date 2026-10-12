@@ -37,11 +37,20 @@ export default function ArticlesPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [subCategoryFilter, setSubCategoryFilter] = useState("all");
+  const [page, setPage] = useState(1);
   const { toast } = useToast();
+
+  const PAGE_SIZE = 50;
 
   useEffect(() => {
     fetchArticles();
     fetchCategories();
+  }, [searchTerm, subCategoryFilter]);
+
+  // При смене фильтров возвращаемся на первую страницу, иначе можно застрять
+  // на несуществующей странице отфильтрованного списка
+  useEffect(() => {
+    setPage(1);
   }, [searchTerm, subCategoryFilter]);
 
   const fetchArticles = async () => {
@@ -115,6 +124,13 @@ export default function ArticlesPage() {
     return matchesSearch && matchesSubCategory;
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredArticles.length / PAGE_SIZE));
+  const pageSafe = Math.min(page, totalPages);
+  const pagedArticles = filteredArticles.slice(
+    (pageSafe - 1) * PAGE_SIZE,
+    pageSafe * PAGE_SIZE
+  );
+
   if (loading) {
     return (
       <div className="p-8">
@@ -182,7 +198,7 @@ export default function ArticlesPage() {
 
       {/* Articles Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredArticles.map((article) => (
+        {pagedArticles.map((article) => (
           <Card key={article.id} className="hover:shadow-lg transition-shadow">
             <CardHeader>
               <div className="flex items-start justify-between">
@@ -332,6 +348,30 @@ export default function ArticlesPage() {
           </div>
         )}
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4 pt-2">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={pageSafe === 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            Назад
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Стр. {pageSafe} из {totalPages} ({filteredArticles.length})
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={pageSafe === totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            Вперёд
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

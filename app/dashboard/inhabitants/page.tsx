@@ -114,6 +114,9 @@ export default function InhabitantsPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [typeFilter, setTypeFilter] = useState<AquariumType | "all">("all");
+  const [page, setPage] = useState(1);
+
+  const PAGE_SIZE = 50;
 
   const [dialogOpen, setDialogOpen] = useState(false);
   // null — создание, иначе id редактируемого обитателя
@@ -126,6 +129,11 @@ export default function InhabitantsPage() {
   useEffect(() => {
     fetchInhabitants();
   }, []);
+
+  // Смена фильтров сбрасывает список на первую страницу
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, typeFilter]);
 
   const fetchInhabitants = async () => {
     try {
@@ -258,6 +266,13 @@ export default function InhabitantsPage() {
     return matches(parent) || children.length > 0 ? [parent, ...children] : [];
   });
 
+  const totalPages = Math.max(1, Math.ceil(filteredInhabitants.length / PAGE_SIZE));
+  const pageSafe = Math.min(page, totalPages);
+  const pagedInhabitants = filteredInhabitants.slice(
+    (pageSafe - 1) * PAGE_SIZE,
+    pageSafe * PAGE_SIZE
+  );
+
   const editingHasVarieties = editingId ? varietiesOf(editingId).length > 0 : false;
   const parentOptions = species
     .filter((i) => i.id !== editingId)
@@ -324,7 +339,7 @@ export default function InhabitantsPage() {
       </div>
 
       <div className="grid gap-4">
-        {filteredInhabitants.map((inhabitant) => {
+        {pagedInhabitants.map((inhabitant) => {
           const title =
             translationOf(inhabitant, "ru")?.title || inhabitant.title || "Без названия";
           const ctx = { subtype: inhabitant.subtype, types: inhabitant.type };
@@ -410,6 +425,30 @@ export default function InhabitantsPage() {
           );
         })}
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4">
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={pageSafe === 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+          >
+            Назад
+          </Button>
+          <span className="text-sm text-muted-foreground">
+            Стр. {pageSafe} из {totalPages} ({filteredInhabitants.length})
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={pageSafe === totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          >
+            Вперёд
+          </Button>
+        </div>
+      )}
 
       {filteredInhabitants.length === 0 && (
         <Card>
