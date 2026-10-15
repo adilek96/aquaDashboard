@@ -103,7 +103,7 @@ export default function UsersPage() {
 
   if (loading) {
     return (
-      <div className="p-8">
+      <div className="p-4 lg:p-8">
         <div className="animate-pulse space-y-6">
           <div className="h-8 bg-muted rounded w-1/4"></div>
           <div className="grid gap-4">
@@ -117,17 +117,17 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="p-8 space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">
+    <div className="p-4 lg:p-8 space-y-6 lg:space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
             Управление пользователями
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm lg:text-base">
             Управление учетными записями пользователей
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
           <Users className="w-5 h-5 text-muted-foreground" />
           <span className="text-sm text-muted-foreground">
             Всего: {totalCount}
@@ -155,9 +155,9 @@ export default function UsersPage() {
         {(users || []).map((user) => (
           <Card key={user.id}>
             <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                  <div className="w-12 h-12 shrink-0 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                     {user.image ? (
                       <img
                         src={user.image}
@@ -169,27 +169,27 @@ export default function UsersPage() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-3 mb-1">
-                      <h3 className="text-lg font-semibold text-foreground">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-1">
+                      <h3 className="text-base sm:text-lg font-semibold text-foreground break-words">
                         {user.name}
                       </h3>
                       <Badge variant="secondary" className="text-xs">
                         ID: {user.id.slice(0, 8)}...
                       </Badge>
                     </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <Mail className="w-3 h-3" />
-                        {user.email}
+                    <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1 min-w-0">
+                        <Mail className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{user.email}</span>
                       </div>
                       {user.country && (
                         <div className="flex items-center gap-1">
-                          <Globe className="w-3 h-3" />
+                          <Globe className="w-3 h-3 shrink-0" />
                           {user.country}
                         </div>
                       )}
                       <div className="flex items-center gap-1">
-                        <Calendar className="w-3 h-3" />
+                        <Calendar className="w-3 h-3 shrink-0" />
                         {new Date(user.createdAt).toLocaleDateString("ru-RU")}
                       </div>
                     </div>
@@ -199,7 +199,7 @@ export default function UsersPage() {
                   variant="outline"
                   size="icon"
                   onClick={() => openDeleteDialog(user)}
-                  className="text-destructive hover:text-destructive"
+                  className="text-destructive hover:text-destructive shrink-0"
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>

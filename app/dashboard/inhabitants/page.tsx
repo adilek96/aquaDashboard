@@ -280,7 +280,7 @@ export default function InhabitantsPage() {
 
   if (loading) {
     return (
-      <div className="p-8">
+      <div className="p-4 lg:p-8">
         <div className="animate-pulse space-y-6">
           <div className="h-8 bg-muted rounded w-1/4"></div>
           <div className="grid gap-4">
@@ -294,21 +294,21 @@ export default function InhabitantsPage() {
   }
 
   return (
-    <div className="p-8 space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Обитатели</h1>
-          <p className="text-muted-foreground">
+    <div className="p-4 lg:p-8 space-y-6 lg:space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Обитатели</h1>
+          <p className="text-muted-foreground text-sm lg:text-base">
             Карточки обитателей для энциклопедии: паспорт и статья по единому шаблону
           </p>
         </div>
-        <Button onClick={openCreate}>
+        <Button onClick={openCreate} className="w-full sm:w-auto shrink-0">
           <Plus className="w-4 h-4 mr-2" />
           Добавить обитателя
         </Button>
       </div>
 
-      <div className="flex items-center space-x-6">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
@@ -318,7 +318,7 @@ export default function InhabitantsPage() {
             className="pl-10"
           />
         </div>
-        <div className="w-64">
+        <div className="w-full sm:w-64">
           <Select
             value={typeFilter}
             onValueChange={(value) => setTypeFilter(value as AquariumType | "all")}
@@ -351,7 +351,7 @@ export default function InhabitantsPage() {
           return (
             <Card
               key={inhabitant.id}
-              className={inhabitant.parentId ? "ml-10 border-dashed" : undefined}
+              className={inhabitant.parentId ? "ml-4 sm:ml-10 border-dashed" : undefined}
             >
               <CardHeader>
                 <div className="flex items-start justify-between gap-4">

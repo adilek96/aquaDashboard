@@ -250,7 +250,7 @@ export default function SubCategoriesPage() {
 
   if (loading) {
     return (
-      <div className="p-8">
+      <div className="p-4 lg:p-8">
         <div className="animate-pulse space-y-6">
           <div className="h-8 bg-muted rounded w-1/4"></div>
           <div className="grid gap-4">
@@ -264,17 +264,17 @@ export default function SubCategoriesPage() {
   }
 
   return (
-    <div className="p-8 space-y-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Подкатегории</h1>
-          <p className="text-muted-foreground">
+    <div className="p-4 lg:p-8 space-y-6 lg:space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Подкатегории</h1>
+          <p className="text-muted-foreground text-sm lg:text-base">
             Управляйте подкатегориями контента
           </p>
         </div>
         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="w-full sm:w-auto shrink-0">
               <Plus className="w-4 h-4 mr-2" />
               Создать подкатегорию
             </Button>
@@ -490,17 +490,19 @@ export default function SubCategoriesPage() {
           return (
             <Card key={subCategory.id}>
               <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
                     <CardTitle className="flex items-center gap-2">
-                      <FolderTree className="w-5 h-5" />
-                      {ruTranslation?.title || "Без названия"}
+                      <FolderTree className="w-5 h-5 shrink-0" />
+                      <span className="break-words">
+                        {ruTranslation?.title || "Без названия"}
+                      </span>
                     </CardTitle>
                     <CardDescription>
                       {ruTranslation?.description || "Без описания"}
                     </CardDescription>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 shrink-0">
                     <Badge
                       variant="outline"
                       className="flex items-center gap-1"

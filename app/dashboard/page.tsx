@@ -82,7 +82,7 @@ export default function Dashboard() {
 
   if (loading) {
     return (
-      <div className="p-8">
+      <div className="p-4 lg:p-8">
         <div className="animate-pulse space-y-6">
           <div className="h-8 bg-muted rounded w-1/4"></div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -96,20 +96,20 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-8 space-y-8">
+    <div className="p-4 lg:p-8 space-y-6 lg:space-y-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="min-w-0">
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
             Панель управления
           </h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground text-sm lg:text-base">
             Добро пожаловать в систему управления AquaDaddy
           </p>
         </div>
         <div className="flex gap-3">
-          <Button asChild>
-            <Link href="/content">
+          <Button asChild className="w-full sm:w-auto">
+            <Link href="/dashboard/content/create">
               <Plus className="w-4 h-4 mr-2" />
               Создать статью
             </Link>
@@ -201,7 +201,7 @@ export default function Dashboard() {
                 variant="outline"
                 className="h-auto p-4 flex flex-col items-center gap-2"
               >
-                <Link href="/categories">
+                <Link href="/dashboard/categories">
                   <FileText className="w-6 h-6" />
                   <span>Категории</span>
                 </Link>
@@ -211,7 +211,7 @@ export default function Dashboard() {
                 variant="outline"
                 className="h-auto p-4 flex flex-col items-center gap-2"
               >
-                <Link href="/subcategories">
+                <Link href="/dashboard/subcategories">
                   <FileText className="w-6 h-6" />
                   <span>Подкатегории</span>
                 </Link>
@@ -221,7 +221,7 @@ export default function Dashboard() {
                 variant="outline"
                 className="h-auto p-4 flex flex-col items-center gap-2"
               >
-                <Link href="/content">
+                <Link href="/dashboard/content">
                   <FileText className="w-6 h-6" />
                   <span>Статьи</span>
                 </Link>
@@ -231,7 +231,7 @@ export default function Dashboard() {
                 variant="outline"
                 className="h-auto p-4 flex flex-col items-center gap-2"
               >
-                <Link href="/inhabitants">
+                <Link href="/dashboard/inhabitants">
                   <Fish className="w-6 h-6" />
                   <span>Обитатели</span>
                 </Link>
@@ -252,7 +252,7 @@ export default function Dashboard() {
                 variant="outline"
                 className="h-auto p-4 flex flex-col items-center gap-2"
               >
-                <Link href="/users">
+                <Link href="/dashboard/users">
                   <Users className="w-6 h-6" />
                   <span>Пользователи</span>
                 </Link>
