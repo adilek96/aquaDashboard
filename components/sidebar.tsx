@@ -18,6 +18,7 @@ import {
   FolderTree,
   LogOut,
   LayoutDashboard,
+  Trophy,
   Menu,
   X,
 } from "lucide-react";
@@ -54,6 +55,11 @@ const navigation = [
     name: "Пользователи",
     href: "/dashboard/users",
     icon: Users,
+  },
+  {
+    name: "Награды",
+    href: "/dashboard/achievements",
+    icon: Trophy,
   },
 ];
 
